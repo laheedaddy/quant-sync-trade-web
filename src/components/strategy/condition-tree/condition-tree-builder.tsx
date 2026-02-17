@@ -9,12 +9,14 @@ interface ConditionTreeBuilderProps {
   onChange: (updated: ConditionGroup) => void;
 }
 
+const DEFAULT_GROUP: ConditionGroup = { logic: 'AND', conditions: [] };
+
 export function ConditionTreeBuilder({ value, onChange }: ConditionTreeBuilderProps) {
   return (
     <TooltipProvider>
       <div className="space-y-1">
         <ConditionGroupNode
-          group={value}
+          group={value ?? DEFAULT_GROUP}
           depth={1}
           onChange={onChange}
         />

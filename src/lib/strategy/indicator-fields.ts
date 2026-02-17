@@ -23,6 +23,11 @@ const INDICATOR_FIELDS: Record<IndicatorType, IndicatorField[]> = {
     { key: 'k', label: '%K' },
     { key: 'd', label: '%D' },
   ],
+  DRAWING_CHANNEL: [
+    { key: 'upper', label: 'Upper' },
+    { key: 'middle', label: 'Middle' },
+    { key: 'lower', label: 'Lower' },
+  ],
 };
 
 export function getIndicatorFields(type: IndicatorType): IndicatorField[] {
@@ -60,6 +65,7 @@ const INDICATOR_PARAM_DEFS: Record<IndicatorType, IndicatorParamDef[]> = {
     { key: 'kPeriod', label: '%K Period', defaultValue: 14, min: 1, max: 500 },
     { key: 'dPeriod', label: '%D Period', defaultValue: 3, min: 1, max: 500 },
   ],
+  DRAWING_CHANNEL: [],
 };
 
 export function getIndicatorParamDefs(type: IndicatorType): IndicatorParamDef[] {
@@ -76,6 +82,9 @@ export function getDefaultParams(type: IndicatorType): Record<string, number> {
 }
 
 export function getIndicatorLabel(type: IndicatorType, params: Record<string, number>): string {
+  if (type === 'DRAWING_CHANNEL') {
+    return `Channel #${params.userChartDrawingNo ?? '?'}`;
+  }
   const values = Object.values(params);
   return values.length > 0 ? `${type}(${values.join(',')})` : type;
 }

@@ -4,6 +4,13 @@
 
 ---
 
+## 응답 언어
+
+- **항상 한글로 응답**합니다.
+- 코드, 커밋 메시지, 변수명은 영어 사용 가능하지만, 설명/요약/대화는 반드시 한글로 작성합니다.
+
+---
+
 ## 프로젝트 정체성
 
 **Quant Sync Trade Web** - 퀀트 자동매매 프론트엔드
@@ -11,6 +18,7 @@
 - Tailwind v4 + shadcn/ui
 - Zustand v5 (상태 관리)
 - Lightweight Charts v5 (차트)
+- sonner (토스트 알림)
 - 백엔드: `quant-sync-trade` (NestJS, 기본 포트 6000)
 
 ---
@@ -21,17 +29,13 @@
 src/
   app/
     page.tsx                          # 차트 페이지 (메인)
-    strategy/
-      page.tsx                        # 전략 목록 페이지
-      [id]/page.tsx                   # 전략 상세/편집 페이지
 
   components/
     layout/
-      header.tsx                      # 헤더 (Chart / Strategy 네비게이션)
+      header.tsx                      # 헤더 (Chart 네비게이션)
     chart/                            # 차트 관련 컴포넌트
     strategy/
-      strategy-list.tsx               # 전략 목록 컨테이너
-      strategy-card.tsx               # 전략 카드 (상태배지, 심볼, 드롭다운)
+      strategy-editor.tsx             # ★ 공유 전략 편집기 (Settings/Indicators/Rules 탭)
       create-strategy-dialog.tsx      # 전략 생성 다이얼로그
       delete-strategy-dialog.tsx      # 삭제 확인 AlertDialog
       strategy-settings-form.tsx      # 전략 설정 편집 폼
@@ -46,28 +50,55 @@ src/
         threshold-condition-form.tsx  # THRESHOLD: 지표 > 값
         cross-condition-form.tsx      # CROSS: 지표 교차 비교
         price-condition-form.tsx      # PRICE: 지표 vs 현재가
+    backtest/
+      strategy-panel.tsx             # 차트 페이지 우측 패널 (3탭: Strategy/Backtest/History)
+      strategy-select-tab.tsx        # Strategy 탭: 하이라키 바인딩 목록 (전략 > 버전 트리) + 상세(StrategyEditor)
+      strategy-detail-panel.tsx      # 전략 상세 패널 (3탭: Backtest/Edit/Channel)
+      backtest-tab.tsx               # Backtest 탭: 전략/버전 드롭다운 + 실행 + 인라인 편집(StrategyEditor)
+      history-tab.tsx                # History 탭: 백테스트 이력 (스냅샷 요약 포함)
+      connect-strategy-dialog.tsx    # 전략-심볼 연결 다이얼로그
+      backtest-results-summary.tsx   # 결과 요약 (스냅샷 상세 포함)
+      backtest-trade-list.tsx        # 거래 내역 리스트
+    signal-channel/
+      channels-tab.tsx               # 시그널 채널 목록 탭 + ChannelCard 컴포넌트
+      create-channel-dialog.tsx      # 채널 생성 다이얼로그 (제목/설명 + 자동 symbol/timeframe)
+      channel-logs-dialog.tsx        # 시그널 로그 조회 다이얼로그
     ui/                               # shadcn/ui 컴포넌트
 
   hooks/
-    use-strategies.ts                 # 전략 목록 페칭 + mutation
-    use-strategy-detail.ts            # 전략 상세 (3개 병렬 API 호출)
+    use-strategies.ts                 # 전략 목록 페칭 + mutation (toast 알림)
+    use-strategy-detail.ts            # 전략 상세 (3개 병렬 API 호출, toast 알림)
+    use-backtest.ts                   # 백테스트 실행/이력 (toast 알림)
+    use-strategy-versions.ts          # 전략 버전 CRUD (toast 알림)
+    use-symbol-bindings.ts            # 종목-버전 바인딩 CRUD (toast 알림)
+    use-signal-channels.ts            # 시그널 채널 CRUD + 상태 전환 (toast 알림)
 
   stores/
     strategy-store.ts                 # 전략 목록 상태
     strategy-detail-store.ts          # 전략 상세 편집 상태
+    backtest-store.ts                 # 백테스트 상태 (ActiveTab, DetailTab 포함)
+    chart-store.ts                    # 차트 상태
+    signal-channel-store.ts           # 시그널 채널 상태
 
   lib/
     api/
-      client.ts                       # API 클라이언트 (응답 래핑 해제)
+      client.ts                       # API 클라이언트 (에러 body 파싱 포함)
       strategy.ts                     # Strategy CRUD API
       strategy-indicator.ts           # Indicator Config API
       strategy-rule.ts                # Signal Rule API
+      strategy-version.ts             # Strategy Version API
+      strategy-binding.ts             # Symbol Binding CRUD API
+      backtest.ts                     # Backtest API
+      signal-channel.ts               # Signal Channel CRUD + 상태 전환 API
+    toast.ts                          # 공통 toast 유틸리티 (sonner)
     strategy/
       indicator-fields.ts             # 지표별 출력 필드 매핑
       condition-helpers.ts            # 조건 트리 유틸 (생성, 검증, 경로 업데이트)
 
   types/
     strategy.ts                       # 전략 관련 타입 + 상수 + 타입가드
+    backtest.ts                       # 백테스트 타입 (StrategySnapshot 포함)
+    signal-channel.ts                 # 시그널 채널 타입 (SignalChannel, CreateSignalChannelRequest 등)
 ```
 
 ---
@@ -286,3 +317,122 @@ npx shadcn@latest add [component-name]
   - `apps/api/src/main.ts`: `initializeTransactionalContext()` 추가
   - `libs/core/src/config/modules/common-datasource.module.ts`: `addTransactionalDataSource()` + `dataSourceFactory` 추가
   - 이 두 가지는 `typeorm-transactional` 라이브러리 초기화에 필수
+
+### 2026-02-14: Toast System + Settings Tab + Backtest Snapshot
+- **Toast System**: sonner 기반 공통 토스트 알림 (`lib/toast.ts`)
+  - API client 에러 body 파싱 개선 (서버 에러 메시지 추출)
+  - 모든 hooks에 `showError`/`showSuccess` 적용
+  - Layout에 `<Toaster />` 추가 (TradingView 다크 테마)
+- **Settings Tab**: 차트 페이지 패널에 4번째 탭 추가
+  - 기존 공유 컴포넌트 재사용 (StrategySettingsForm, IndicatorConfigList, SignalRuleList)
+- **Backtest Strategy Snapshot**: 백테스트 실행 시 전략 스냅샷 JSONB 저장
+  - 프론트엔드: History 탭 스냅샷 요약, 결과 요약에 스냅샷 상세 표시
+  - **백엔드 수정** (quant-sync-trade):
+    - `StrategySnapshotType` 추가 (entities/types)
+    - `BacktestRunEntity`에 `strategySnapshot` JSONB 컬럼 추가
+    - `CommonBacktestService.runBacktest()`에서 스냅샷 저장
+
+### 2026-02-14: 전략 버전 관리 시스템
+- **Strategy Versioning**: 전략 버전 관리 (스냅샷 기반)
+  - Version 탭 추가 (5번째 탭): 버전 생성/상세/복원/삭제
+  - 백테스트 실행 시 자동 버전 생성
+  - History/Results에 버전 정보 표시
+  - `use-strategy-versions.ts` 훅, `strategy-version.ts` API 클라이언트
+  - `backtest-store.ts`에 versions[], selectedVersionNo 추가
+  - **백엔드 수정** (quant-sync-trade):
+    - `UserStrategyVersionEntity` 추가 (JSONB 스냅샷)
+    - `BacktestRunEntity`에 `userStrategyVersionNo` FK 추가
+    - `CommonStrategyService`에 5개 버전 메서드 + `buildVersionSnapshot` 헬퍼
+    - `CommonBacktestService.runBacktest()`에서 자동 버전 생성
+    - Strategy/Backtest 컨트롤러에 버전 엔드포인트 추가
+
+### 2026-02-14: 백테스트 패널 UI 리디자인 + 공유 StrategyEditor
+- **StrategyEditor 공유 컴포넌트** (`strategy/strategy-editor.tsx`)
+  - `useStrategyDetail(strategyNo)` + Settings/Indicators/Rules 탭을 하나의 컴포넌트로 통합
+  - 사용처: 전략 상세 페이지(`/strategy/[id]`), 차트 패널 Strategy 탭 상세뷰, Backtest 탭 인라인 편집
+  - `onChanged` 콜백으로 편집 후 버전 목록 새로고침 지원
+- **Backtest 탭 리디자인** (`backtest-tab.tsx`)
+  - 전략 드롭다운 (useStrategies) + 버전 드롭다운 (MAJOR/MINOR 구분, 마이너 개수 표시)
+  - "Latest (Live)" 옵션: 라이브 config로 실행
+  - 접기/펼치기 "Strategy Edit" 섹션 → StrategyEditor 컴포넌트 사용
+- **Version 탭 리디자인** (`version-tab.tsx`)
+  - flat list → Major > Minor 계층 트리 뷰
+  - Draft 그룹 (첫 MAJOR 이전 MINOR들), Major 노드 접기/펼치기
+  - Major: 파란색 `v{N}`, 마이너 개수 항상 표시, Deploy/Restore/Delete 액션
+  - Minor: 주황색 `d{N}`, 들여쓰기, Info/Delete만
+  - 클릭 시 `selectedVersionNo` 설정 → Backtest 탭 버전 드롭다운에 반영
+- **Strategy 탭 개선** (`strategy-select-tab.tsx`)
+  - 바인딩 목록: MAJOR 버전 + 마이너 개수 배지 표시 (`{N}v {N}d`)
+  - 상세뷰: 수동 조립 → StrategyEditor 공유 컴포넌트로 교체
+- **전략 상세 페이지 간소화** (`strategy/[id]/page.tsx`)
+  - `useStrategyDetail` 직접 사용 → StrategyEditor 컴포넌트로 교체
+
+### 2026-02-14: 전략-종목-버전 바인딩 시스템
+- **Symbol Binding**: 종목별 독립 버전 배포 아키텍처
+  - Deploy 탭 추가 (6번째 탭): 종목에 특정 버전 배포/수정/해제
+  - Version 탭에 "Deploy" 버튼 추가 (현재 차트 종목에 즉시 배포)
+  - Backtest 탭에 배포된 버전 표시, 배포 버전 기반 백테스트 실행
+  - `use-symbol-bindings.ts` 훅, `strategy-binding.ts` API 클라이언트
+  - `backtest-store.ts`에 symbolBindings[], deploy 탭 추가
+  - `RunBacktestRequest`에 `userStrategyVersionNo` 추가
+  - **백엔드 수정** (quant-sync-trade):
+    - `UserStrategySymbolBindingEntity` 추가 (전략-종목-버전 바인딩)
+    - `CommonStrategyService`에 바인딩 CRUD 6개 메서드 추가
+    - `CommonBacktestService.runBacktest()`에서 버전/바인딩 기반 스냅샷 실행 지원
+    - Strategy 컨트롤러에 바인딩 CRUD 엔드포인트 (GET/POST/PUT/DELETE)
+    - `deleteVersion()` 시 참조 바인딩 자동 비활성화
+
+### 2026-02-16: Signal Channel 탭 + 실시간 시세 수신 관리
+- **Signal Channel 탭**: 전략 상세 패널(`strategy-detail-panel.tsx`)에 3번째 탭 추가
+  - `DetailTab` 타입에 `'channel'` 추가 (`backtest-store.ts`)
+  - `StrategyChannelContent` 로컬 컴포넌트: 기존 signal-channel 인프라 100% 재사용
+  - `ChannelCard` 내보내기 (channels-tab.tsx → strategy-detail-panel.tsx 공유)
+- **채널 생성 다이얼로그 간소화** (`create-channel-dialog.tsx`)
+  - symbol/timeframe: 전략에서 자동 전달 (prop), 사용자 입력 제거
+  - title(필수)/description(선택) 입력 추가
+- **채널 상태 머신**: DISCONNECTED → CONNECTED → RECEIVING
+  - Connect/Disconnect, Start/Stop Receiving, Delete 전체 관리
+  - 수신 시작 시 백엔드에서 CollectionTarget 자동 확보 (ensureCollectionTarget)
+
+### 2026-02-16: Strategy 탭 하이라키 구조 + Version 탭 제거
+- **Strategy 탭 하이라키 리디자인** (`strategy-select-tab.tsx`)
+  - flat 바인딩 목록 → 확장 가능한 BindingCard (전략 > 버전 트리)
+  - 각 카드 확장 시 Major > Minor 계층 트리 표시 (Draft 그룹 포함)
+  - 인라인 버전 관리: 생성/삭제/복원/배포 액션
+  - 편집 아이콘으로 상세뷰(StrategyEditor) 진입
+  - 버전 목록은 per-binding 독립 로딩 (공유 스토어 충돌 방지)
+- **Version 탭 제거**
+  - `strategy-panel.tsx`: 4탭 → 3탭 (Strategy/Backtest/History)
+  - `backtest-store.ts`: `ActiveTab`에서 `'version'` 제거
+  - `version-tab.tsx`: 패널에서 미사용 (코드 보존)
+
+### 2026-02-17: 차트 지표 토글 버그 수정
+- **Bollinger Band 토글 먹통 수정** (`hooks/use-chart-indicators.ts`)
+  - TypeORM `bigint` 컬럼이 JavaScript string으로 반환되어 `===` 비교 실패
+  - 모든 `userChartIndicatorConfigNo` 할당에 `Number()` 변환 추가
+  - 영향 범위: version/strategy/default 모드 load, add, toggle, update 전체
+- **지표 숨기기 시 레전드 사라짐 수정** (`hooks/use-chart-data.ts`, `components/chart/chart-legend.tsx`)
+  - `activeKey`에서 `isActive` 제거 → 토글 시 차트 데이터 refetch 방지
+  - 비활성 지표: `opacity-40` 스타일 + 값 미표시 (레전드 유지)
+- **주의사항**: TypeORM `bigint` → JS `string` 문제는 `@Transform(() => Number())` 미적용 DTO에서 반복 발생 가능
+
+### 2026-02-17: 관리자 Backfill 기능
+- **Collection Targets Backfill UI** (`app/management/page.tsx`)
+  - 각 수집 대상 행에 "Backfill" 버튼 추가
+  - Backfill 다이얼로그: 대상 심볼/타임프레임 표시 + 날짜 범위 입력 (2015-01-01 ~ 오늘)
+  - `BackfillRequest`, `BackfillResult` 타입 추가 (`types/management.ts`)
+  - `backfillCollectionTarget()` API 함수 추가 (`lib/api/management.ts`)
+  - `backfill()` 훅 메서드 추가 (`hooks/use-management.ts`)
+  - **백엔드 수정** (quant-sync-trade):
+    - `BackfillByTargetDto` 추가 (`libs/types` — from/to만 받는 경량 DTO)
+    - `CollectionTargetService.backfill()` 메서드 추가 (crypto 자동 판별)
+    - `POST collector/target/:no/backfill` 엔드포인트 추가 (console-api)
+    - `CollectionTargetModule`에 `CommonCollectorModule` import 추가
+
+### 2026-02-17: 실시간 시그널 PRICE 조건 수정
+- **실시간 OHLC → 체결가 통일** (`apps/signal/src/biz/signal/signal-processor.service.ts`)
+  - `handleRealtimeQuote()`에서 OHLC 4개 필드 모두 현재 체결가(`message.price`)로 설정
+  - 백테스트: 완성된 캔들 OHLC 사용 (기존 유지)
+  - 실시간: 틱(체결가)만 유의미하므로 `openPrice=highPrice=lowPrice=closePrice=tickPrice`
+  - Rule Editor에 안내 문구 추가 (`signal-rule-editor.tsx`): "PRICE 조건의 O/H/L/C는 백테스트에서만 구분"
+- **설계 원칙**: PRICE 조건의 `priceField` (open/high/low/close)는 백테스트에서 캔들 내 세밀한 비교에 사용. 실시간에서는 항상 현재 체결가와 비교

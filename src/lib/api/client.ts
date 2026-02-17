@@ -28,7 +28,16 @@ export async function apiClient<T>(
   });
 
   if (!res.ok) {
-    throw new ApiError(res.status, `API Error: ${res.status} ${res.statusText}`);
+    let message = `API Error: ${res.status} ${res.statusText}`;
+    try {
+      const errorBody = await res.json();
+      if (errorBody?.message) {
+        message = errorBody.message;
+      }
+    } catch {
+      // body not parseable - keep default
+    }
+    throw new ApiError(res.status, message);
   }
 
   const json: ApiResponse<T> = await res.json();

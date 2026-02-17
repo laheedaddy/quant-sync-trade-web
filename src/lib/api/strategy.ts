@@ -7,8 +7,10 @@ import type {
 
 const BASE = '/v1/strategy';
 
-export async function fetchStrategies(): Promise<GetUserStrategyDto[]> {
-  return apiClient<GetUserStrategyDto[]>(BASE);
+export async function fetchStrategies(symbol: string, timeframe: string): Promise<GetUserStrategyDto[]> {
+  return apiClient<GetUserStrategyDto[]>(
+    `${BASE}?symbol=${encodeURIComponent(symbol)}&timeframe=${encodeURIComponent(timeframe)}`,
+  );
 }
 
 export async function fetchStrategyDetail(userStrategyNo: number): Promise<GetUserStrategyDto> {

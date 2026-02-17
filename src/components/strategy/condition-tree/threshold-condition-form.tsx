@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ThresholdCondition } from '@/types/strategy';
 import { COMPARISON_OPERATORS, COMPARISON_OPERATOR_LABELS } from '@/types/strategy';
-import { useStrategyDetailStore } from '@/stores/strategy-detail-store';
+import { useConditionIndicators } from '@/hooks/use-condition-indicators';
+import { useChartStore } from '@/stores/chart-store';
 import { getIndicatorFields, getDefaultField } from '@/lib/strategy/indicator-fields';
 import type { IndicatorType } from '@/types/strategy';
 
@@ -14,13 +15,15 @@ interface ThresholdConditionFormProps {
 }
 
 export function ThresholdConditionForm({ condition, onChange }: ThresholdConditionFormProps) {
-  const indicators = useStrategyDetailStore((s) => s.indicators);
-  const selected = indicators.find((i) => i.userIndicatorConfigNo === condition.indicatorRef);
+  const indicators = useConditionIndicators();
+  const priceScaleMode = useChartStore((s) => s.priceScaleMode);
+  const selected = indicators.find((i) => Number(i.userIndicatorConfigNo) === Number(condition.indicatorRef));
   const fields = selected ? getIndicatorFields(selected.indicatorType as IndicatorType) : [];
+  const isDrawingChannel = selected?.indicatorType === 'DRAWING_CHANNEL';
 
   function handleIndicatorChange(v: string) {
     const no = parseInt(v);
-    const ind = indicators.find((i) => i.userIndicatorConfigNo === no);
+    const ind = indicators.find((i) => Number(i.userIndicatorConfigNo) === no);
     onChange({
       ...condition,
       indicatorRef: no,
@@ -45,6 +48,12 @@ export function ThresholdConditionForm({ condition, onChange }: ThresholdConditi
           ))}
         </SelectContent>
       </Select>
+
+      {isDrawingChannel && (
+        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${priceScaleMode === 1 ? 'border-[#ff9800]/50 text-[#ff9800] bg-[#ff9800]/10' : 'border-[#787b86]/40 text-[#787b86] bg-[#787b86]/10'}`}>
+          {priceScaleMode === 1 ? 'Log' : 'Linear'}
+        </span>
+      )}
 
       <Select value={condition.field || undefined} onValueChange={(v) => onChange({ ...condition, field: v })} disabled={fields.length === 0}>
         <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc] disabled:opacity-40">

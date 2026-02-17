@@ -3,12 +3,15 @@ import type { ChartCandle, ChartIndicator, Timeframe } from '@/types/chart';
 function getTimeframeMs(tf: Timeframe): number {
   const map: Record<Timeframe, number> = {
     '1min': 60_000,
+    '3min': 180_000,
     '5min': 300_000,
+    '10min': 600_000,
     '15min': 900_000,
     '30min': 1_800_000,
     '1hour': 3_600_000,
     '4hour': 14_400_000,
     '1day': 86_400_000,
+    '1week': 604_800_000,
   };
   return map[tf];
 }

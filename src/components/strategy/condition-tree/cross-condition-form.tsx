@@ -3,7 +3,8 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { CrossCondition, IndicatorType } from '@/types/strategy';
 import { CROSS_OPERATORS, CROSS_OPERATOR_LABELS } from '@/types/strategy';
-import { useStrategyDetailStore } from '@/stores/strategy-detail-store';
+import { useConditionIndicators } from '@/hooks/use-condition-indicators';
+import { useChartStore } from '@/stores/chart-store';
 import { getIndicatorFields, getDefaultField } from '@/lib/strategy/indicator-fields';
 
 interface CrossConditionFormProps {
@@ -12,21 +13,23 @@ interface CrossConditionFormProps {
 }
 
 export function CrossConditionForm({ condition, onChange }: CrossConditionFormProps) {
-  const indicators = useStrategyDetailStore((s) => s.indicators);
-  const sourceInd = indicators.find((i) => i.userIndicatorConfigNo === condition.indicatorRef);
-  const targetInd = indicators.find((i) => i.userIndicatorConfigNo === condition.targetRef);
+  const indicators = useConditionIndicators();
+  const priceScaleMode = useChartStore((s) => s.priceScaleMode);
+  const sourceInd = indicators.find((i) => Number(i.userIndicatorConfigNo) === Number(condition.indicatorRef));
+  const targetInd = indicators.find((i) => Number(i.userIndicatorConfigNo) === Number(condition.targetRef));
   const sourceFields = sourceInd ? getIndicatorFields(sourceInd.indicatorType as IndicatorType) : [];
   const targetFields = targetInd ? getIndicatorFields(targetInd.indicatorType as IndicatorType) : [];
+  const hasDrawingChannel = sourceInd?.indicatorType === 'DRAWING_CHANNEL' || targetInd?.indicatorType === 'DRAWING_CHANNEL';
 
   function handleSourceChange(v: string) {
     const no = parseInt(v);
-    const ind = indicators.find((i) => i.userIndicatorConfigNo === no);
+    const ind = indicators.find((i) => Number(i.userIndicatorConfigNo) === no);
     onChange({ ...condition, indicatorRef: no, field: ind ? getDefaultField(ind.indicatorType as IndicatorType) : '' });
   }
 
   function handleTargetChange(v: string) {
     const no = parseInt(v);
-    const ind = indicators.find((i) => i.userIndicatorConfigNo === no);
+    const ind = indicators.find((i) => Number(i.userIndicatorConfigNo) === no);
     onChange({ ...condition, targetRef: no, targetField: ind ? getDefaultField(ind.indicatorType as IndicatorType) : null });
   }
 
@@ -66,6 +69,12 @@ export function CrossConditionForm({ condition, onChange }: CrossConditionFormPr
           {targetFields.map((f) => (<SelectItem key={f.key} value={f.key} className="text-[#d1d4dc] text-xs">{f.label}</SelectItem>))}
         </SelectContent>
       </Select>
+
+      {hasDrawingChannel && (
+        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${priceScaleMode === 1 ? 'border-[#ff9800]/50 text-[#ff9800] bg-[#ff9800]/10' : 'border-[#787b86]/40 text-[#787b86] bg-[#787b86]/10'}`}>
+          {priceScaleMode === 1 ? 'Log' : 'Linear'}
+        </span>
+      )}
     </div>
   );
 }

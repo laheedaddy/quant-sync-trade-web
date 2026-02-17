@@ -1,5 +1,5 @@
 import type { DeepPartial, ChartOptions } from 'lightweight-charts';
-import { ColorType } from 'lightweight-charts';
+import { ColorType, CrosshairMode } from 'lightweight-charts';
 
 export const CHART_COLORS = {
   background: '#0a0e17',
@@ -43,6 +43,7 @@ export function createChartTheme(): DeepPartial<ChartOptions> {
       horzLines: { color: CHART_COLORS.grid },
     },
     crosshair: {
+      mode: CrosshairMode.Normal,
       vertLine: {
         color: CHART_COLORS.crosshair,
         width: 1,

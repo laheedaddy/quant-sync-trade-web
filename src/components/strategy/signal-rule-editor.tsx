@@ -32,7 +32,7 @@ export function SignalRuleEditor({ open, onOpenChange, editingRule, onCreate, on
     if (editingRule) {
       setRuleType(editingRule.ruleType);
       setPriority(editingRule.priority);
-      setConditionTree(editingRule.conditions);
+      setConditionTree(editingRule.conditions ?? createDefaultGroup());
     } else {
       setRuleType('BUY');
       setPriority(0);
@@ -80,6 +80,7 @@ export function SignalRuleEditor({ open, onOpenChange, editingRule, onCreate, on
             </div>
             <div className="grid gap-2 flex-1 min-h-0">
               <Label>Condition Tree</Label>
+              <p className="text-[10px] text-[#787b86] -mt-1">PRICE 조건의 O/H/L/C는 백테스트에서만 구분되며, 실시간 시그널에서는 항상 현재 체결가와 비교됩니다.</p>
               <ScrollArea className="flex-1 min-h-[200px] max-h-[400px]">
                 <ConditionTreeBuilder value={conditionTree} onChange={setConditionTree} />
               </ScrollArea>

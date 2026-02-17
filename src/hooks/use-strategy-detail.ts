@@ -2,6 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useStrategyDetailStore } from '@/stores/strategy-detail-store';
+import { useChartStore } from '@/stores/chart-store';
 import { fetchStrategyDetail, updateStrategy } from '@/lib/api/strategy';
 import { fetchIndicators, addIndicator as apiAddIndicator, updateIndicator as apiUpdateIndicator, deleteIndicator as apiDeleteIndicator } from '@/lib/api/strategy-indicator';
 import { fetchRules, addRule as apiAddRule, updateRule as apiUpdateRule, deleteRule as apiDeleteRule } from '@/lib/api/strategy-rule';
@@ -12,11 +13,17 @@ import type {
   CreateRuleRequest,
   UpdateRuleRequest,
 } from '@/types/strategy';
+import { showError, showSuccess } from '@/lib/toast';
 
 export function useStrategyDetail(userStrategyNo: number) {
   const store = useStrategyDetailStore();
+  const { strategyIndicatorVersion } = useChartStore();
 
   const load = useCallback(async () => {
+    if (!userStrategyNo) {
+      store.setIsLoading(false);
+      return;
+    }
     store.setIsLoading(true);
     store.setError(null);
     try {
@@ -30,10 +37,11 @@ export function useStrategyDetail(userStrategyNo: number) {
       store.setRules(rules);
     } catch (err) {
       store.setError(err instanceof Error ? err.message : 'Failed to fetch strategy');
+      showError(err);
     } finally {
       store.setIsLoading(false);
     }
-  }, [userStrategyNo]);
+  }, [userStrategyNo, strategyIndicatorVersion]);
 
   useEffect(() => {
     load();
@@ -46,61 +54,103 @@ export function useStrategyDetail(userStrategyNo: number) {
 
   const update = useCallback(
     async (body: UpdateStrategyRequest) => {
-      const updated = await updateStrategy(userStrategyNo, body);
-      store.setStrategy(updated);
-      return updated;
+      try {
+        const updated = await updateStrategy(userStrategyNo, body);
+        store.setStrategy(updated);
+        showSuccess('전략이 업데이트되었습니다.');
+        return updated;
+      } catch (err) {
+        showError(err);
+        throw err;
+      }
     },
     [userStrategyNo],
   );
 
   const addIndicator = useCallback(
     async (body: CreateIndicatorRequest) => {
-      const ind = await apiAddIndicator(userStrategyNo, body);
-      store.addIndicator(ind);
-      return ind;
+      try {
+        const ind = await apiAddIndicator(userStrategyNo, body);
+        store.addIndicator(ind);
+        showSuccess('지표가 추가되었습니다.');
+        return ind;
+      } catch (err) {
+        showError(err);
+        throw err;
+      }
     },
     [userStrategyNo],
   );
 
   const editIndicator = useCallback(
     async (indicatorConfigNo: number, body: UpdateIndicatorRequest) => {
-      const ind = await apiUpdateIndicator(userStrategyNo, indicatorConfigNo, body);
-      store.updateIndicator(indicatorConfigNo, ind);
-      return ind;
+      try {
+        const ind = await apiUpdateIndicator(userStrategyNo, indicatorConfigNo, body);
+        store.updateIndicator(indicatorConfigNo, ind);
+        showSuccess('지표가 수정되었습니다.');
+        return ind;
+      } catch (err) {
+        showError(err);
+        throw err;
+      }
     },
     [userStrategyNo],
   );
 
   const removeIndicator = useCallback(
     async (indicatorConfigNo: number) => {
-      await apiDeleteIndicator(userStrategyNo, indicatorConfigNo);
-      store.removeIndicator(indicatorConfigNo);
+      try {
+        await apiDeleteIndicator(userStrategyNo, indicatorConfigNo);
+        store.removeIndicator(indicatorConfigNo);
+        showSuccess('지표가 삭제되었습니다.');
+      } catch (err) {
+        showError(err);
+        throw err;
+      }
     },
     [userStrategyNo],
   );
 
   const addRule = useCallback(
     async (body: CreateRuleRequest) => {
-      const rule = await apiAddRule(userStrategyNo, body);
-      store.addRule(rule);
-      return rule;
+      try {
+        const rule = await apiAddRule(userStrategyNo, body);
+        store.addRule(rule);
+        showSuccess('규칙이 추가되었습니다.');
+        return rule;
+      } catch (err) {
+        showError(err);
+        throw err;
+      }
     },
     [userStrategyNo],
   );
 
   const editRule = useCallback(
     async (ruleNo: number, body: UpdateRuleRequest) => {
-      const rule = await apiUpdateRule(userStrategyNo, ruleNo, body);
-      store.updateRule(ruleNo, rule);
-      return rule;
+      try {
+        const rule = await apiUpdateRule(userStrategyNo, ruleNo, body);
+        store.updateRule(ruleNo, rule);
+        showSuccess('규칙이 수정되었습니다.');
+        return rule;
+      } catch (err) {
+        showError(err);
+        throw err;
+      }
     },
     [userStrategyNo],
   );
 
   const removeRule = useCallback(
     async (ruleNo: number) => {
-      await apiDeleteRule(userStrategyNo, ruleNo);
-      store.removeRule(ruleNo);
+      try {
+        await apiDeleteRule(userStrategyNo, ruleNo);
+        store.removeRule(ruleNo);
+        showSuccess('규칙이 삭제되었습니다.');
+      } catch (err) {
+        showError(err);
+        throw err;
+      }
     },
     [userStrategyNo],
   );

@@ -3,7 +3,8 @@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { PriceCondition, PriceField, IndicatorType } from '@/types/strategy';
 import { COMPARISON_OPERATORS, COMPARISON_OPERATOR_LABELS, PRICE_FIELDS, PRICE_FIELD_LABELS } from '@/types/strategy';
-import { useStrategyDetailStore } from '@/stores/strategy-detail-store';
+import { useConditionIndicators } from '@/hooks/use-condition-indicators';
+import { useChartStore } from '@/stores/chart-store';
 import { getIndicatorFields, getDefaultField } from '@/lib/strategy/indicator-fields';
 
 interface PriceConditionFormProps {
@@ -12,13 +13,15 @@ interface PriceConditionFormProps {
 }
 
 export function PriceConditionForm({ condition, onChange }: PriceConditionFormProps) {
-  const indicators = useStrategyDetailStore((s) => s.indicators);
-  const selected = indicators.find((i) => i.userIndicatorConfigNo === condition.indicatorRef);
+  const indicators = useConditionIndicators();
+  const priceScaleMode = useChartStore((s) => s.priceScaleMode);
+  const selected = indicators.find((i) => Number(i.userIndicatorConfigNo) === Number(condition.indicatorRef));
   const fields = selected ? getIndicatorFields(selected.indicatorType as IndicatorType) : [];
+  const isDrawingChannel = selected?.indicatorType === 'DRAWING_CHANNEL';
 
   function handleIndicatorChange(v: string) {
     const no = parseInt(v);
-    const ind = indicators.find((i) => i.userIndicatorConfigNo === no);
+    const ind = indicators.find((i) => Number(i.userIndicatorConfigNo) === no);
     onChange({ ...condition, indicatorRef: no, field: ind ? getDefaultField(ind.indicatorType as IndicatorType) : '' });
   }
 
@@ -51,6 +54,12 @@ export function PriceConditionForm({ condition, onChange }: PriceConditionFormPr
           {PRICE_FIELDS.map((pf) => (<SelectItem key={pf} value={pf} className="text-[#d1d4dc] text-xs">{PRICE_FIELD_LABELS[pf]}</SelectItem>))}
         </SelectContent>
       </Select>
+
+      {isDrawingChannel && (
+        <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${priceScaleMode === 1 ? 'border-[#ff9800]/50 text-[#ff9800] bg-[#ff9800]/10' : 'border-[#787b86]/40 text-[#787b86] bg-[#787b86]/10'}`}>
+          {priceScaleMode === 1 ? 'Log' : 'Linear'}
+        </span>
+      )}
     </div>
   );
 }

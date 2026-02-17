@@ -1,0 +1,129 @@
+import type { VersionSnapshot } from './strategy';
+
+// ──────────────────────────────────────────────
+// Signal Channel types
+// ──────────────────────────────────────────────
+
+export interface SignalChannel {
+  signalChannelNo: number;
+  userNo: number;
+  userStrategyNo: number;
+  userStrategyVersionNo: number;
+  title?: string;
+  description?: string;
+  symbol: string;
+  timeframe: string;
+  deliveryType: string;
+  isAutoTrade: boolean;
+  isConnected: boolean;
+  isReceiving: boolean;
+  lastSignalType: 'BUY' | 'SELL' | null;
+  lastSignalAt: string | null;
+  lastSignalPrice: number | null;
+  versionSnapshot: VersionSnapshot;
+  versionNumber?: number;
+  strategyName?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SignalChannelLog {
+  signalChannelLogNo: number;
+  signalChannelNo: number;
+  signalType: 'BUY' | 'SELL';
+  price: number;
+  matchedRuleType: string;
+  reason: Record<string, unknown> | null;
+  evaluatedAt: string;
+  createdAt: string;
+}
+
+// ──────────────────────────────────────────────
+// Channel State
+// ──────────────────────────────────────────────
+
+export type ChannelState = 'DISCONNECTED' | 'CONNECTED' | 'RECEIVING';
+
+export function getChannelState(ch: SignalChannel): ChannelState {
+  if (ch.isReceiving) return 'RECEIVING';
+  if (ch.isConnected) return 'CONNECTED';
+  return 'DISCONNECTED';
+}
+
+// ──────────────────────────────────────────────
+// Channel Status (Detail Dialog)
+// ──────────────────────────────────────────────
+
+export interface ChannelIndicatorCache {
+  indicatorType: string;
+  displayName: string;
+  paramHash: string;
+  parameters: Record<string, unknown>;
+  hasCacheData: boolean;
+  values: Array<{ at: string; v: Record<string, unknown> }>;
+}
+
+export interface ChannelStatus {
+  lastSignalType: string | null;
+  lastSignalAt: string | null;
+  lastSignalPrice: number | null;
+  isInCooldown: boolean;
+  cooldownSecondsRemaining: number;
+  isEvalLocked: boolean;
+  indicators: ChannelIndicatorCache[];
+}
+
+// ──────────────────────────────────────────────
+// Channel Monitor (Rule Evaluation Trace)
+// ──────────────────────────────────────────────
+
+export interface LeafConditionEval {
+  type: 'THRESHOLD' | 'CROSS' | 'PRICE';
+  passed: boolean;
+  indicatorRef: number;
+  field: string;
+  operator: string;
+  actualValue: number | null;
+  targetValue: number | null;
+  prevValue?: number | null;
+  prevTargetValue?: number | null;
+}
+
+export interface ConditionGroupEval {
+  logic: 'AND' | 'OR';
+  passed: boolean;
+  conditions: Array<ConditionGroupEval | LeafConditionEval>;
+}
+
+export interface RuleEvalResult {
+  ruleNo: number;
+  ruleType: 'BUY' | 'SELL';
+  priority: number;
+  passed: boolean;
+  conditionTrace: ConditionGroupEval;
+}
+
+export interface ChannelMonitor {
+  lastSignalType: string | null;
+  lastSignalAt: string | null;
+  lastSignalPrice: number | null;
+  isInCooldown: boolean;
+  cooldownSecondsRemaining: number;
+  nextEvaluateRule: 'BUY' | 'SELL';
+  indicators: ChannelIndicatorCache[];
+  ruleEvaluations: RuleEvalResult[];
+}
+
+// ──────────────────────────────────────────────
+// Request types
+// ──────────────────────────────────────────────
+
+export interface CreateSignalChannelRequest {
+  userStrategyVersionNo: number;
+  title?: string;
+  description?: string;
+  symbol: string;
+  timeframe: string;
+  deliveryType?: string;
+  isAutoTrade?: boolean;
+}

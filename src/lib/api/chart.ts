@@ -1,11 +1,19 @@
-import type { ChartResponse, IndicatorConfig, Timeframe } from '@/types/chart';
+import type {
+  ChartResponse,
+  Timeframe,
+  UserChartIndicatorConfig,
+  CreateChartIndicatorRequest,
+  UpdateChartIndicatorRequest,
+} from '@/types/chart';
 import { apiClient } from './client';
 
 interface FetchChartDataParams {
   timeframe?: Timeframe;
-  indicatorConfigNos?: number[];
   before?: string;
   limit?: number;
+  userStrategyNo?: number;
+  userStrategyVersionNo?: number;
+  candlesOnly?: boolean;
 }
 
 export async function fetchChartData(
@@ -17,9 +25,9 @@ export async function fetchChartData(
   if (params?.timeframe) searchParams.set('timeframe', params.timeframe);
   if (params?.before) searchParams.set('before', params.before);
   if (params?.limit) searchParams.set('limit', params.limit.toString());
-  if (params?.indicatorConfigNos?.length) {
-    searchParams.set('indicatorConfigNos', params.indicatorConfigNos.join(','));
-  }
+  if (params?.userStrategyNo) searchParams.set('userStrategyNo', params.userStrategyNo.toString());
+  if (params?.userStrategyVersionNo) searchParams.set('userStrategyVersionNo', params.userStrategyVersionNo.toString());
+  if (params?.candlesOnly) searchParams.set('candlesOnly', 'true');
 
   const query = searchParams.toString();
   const path = `/v1/chart/${encodeURIComponent(symbol)}${query ? `?${query}` : ''}`;
@@ -44,15 +52,52 @@ export async function fetchChartData(
   };
 }
 
-export async function fetchIndicatorConfigs(
-  timeframe?: Timeframe,
-): Promise<IndicatorConfig[]> {
-  const query = timeframe ? `?timeframe=${timeframe}` : '';
-  const raw = await apiClient<IndicatorConfig[]>(`/v1/chart/indicator-configs${query}`);
+export async function fetchChartIndicatorConfigs(
+  symbol: string,
+  timeframe: string,
+): Promise<UserChartIndicatorConfig[]> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('timeframe', timeframe);
 
-  // Normalize indicatorConfigNo to number
-  return raw.map((c) => ({
-    ...c,
-    indicatorConfigNo: Number(c.indicatorConfigNo),
-  }));
+  const path = `/v1/chart/${encodeURIComponent(symbol)}/indicator?${searchParams.toString()}`;
+  return apiClient<UserChartIndicatorConfig[]>(path);
+}
+
+export async function addChartIndicatorConfig(
+  symbol: string,
+  timeframe: string,
+  body: CreateChartIndicatorRequest,
+): Promise<UserChartIndicatorConfig> {
+  const searchParams = new URLSearchParams();
+  searchParams.set('timeframe', timeframe);
+
+  return apiClient<UserChartIndicatorConfig>(
+    `/v1/chart/${encodeURIComponent(symbol)}/indicator?${searchParams.toString()}`,
+    {
+      method: 'POST',
+      body: JSON.stringify(body),
+    },
+  );
+}
+
+export async function updateChartIndicatorConfig(
+  configNo: number,
+  body: UpdateChartIndicatorRequest,
+): Promise<UserChartIndicatorConfig> {
+  return apiClient<UserChartIndicatorConfig>(`/v1/chart/indicator/${configNo}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function toggleChartIndicatorConfig(
+  configNo: number,
+): Promise<UserChartIndicatorConfig> {
+  return apiClient<UserChartIndicatorConfig>(`/v1/chart/indicator/${configNo}/toggle`, {
+    method: 'PUT',
+  });
+}
+
+export async function deleteChartIndicatorConfig(configNo: number): Promise<void> {
+  await apiClient<void>(`/v1/chart/indicator/${configNo}`, { method: 'DELETE' });
 }

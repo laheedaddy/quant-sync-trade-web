@@ -2,101 +2,335 @@
 
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useChartStore } from '@/stores/chart-store';
+import { useBacktestStore } from '@/stores/backtest-store';
+import { useChartIndicators } from '@/hooks/use-chart-indicators';
+import { useRealtimeQuote } from '@/hooks/use-realtime-quote';
 import { TIMEFRAMES } from '@/types/chart';
-import type { Timeframe } from '@/types/chart';
+import type { Timeframe, CandleDisplayType } from '@/types/chart';
+import { BarChart3, FlaskConical, LineChart, AreaChart, Ruler, TrendingUp, CandlestickChart, ChevronDown } from 'lucide-react';
+import { useDrawingStore } from '@/stores/drawing-store';
+import { AddIndicatorDialog } from './add-indicator-dialog';
+import { SymbolSearchDialog } from './symbol-search-dialog';
+import { updateChartSettings } from '@/lib/api/chart-settings';
+import { updateDrawingsPriceScaleMode } from '@/lib/api/chart-drawing';
+
+const CANDLE_TYPE_OPTIONS: { value: CandleDisplayType; label: string; icon: React.ReactNode }[] = [
+  { value: 'candles', label: 'Candles', icon: <CandlestickChart className="w-4 h-4" /> },
+  { value: 'heikin_ashi', label: 'Heikin Ashi', icon: <BarChart3 className="w-4 h-4" /> },
+  { value: 'line', label: 'Line', icon: <LineChart className="w-4 h-4" /> },
+  { value: 'area', label: 'Area', icon: <AreaChart className="w-4 h-4" /> },
+];
 
 export function ChartToolbar() {
   const {
     symbol,
     timeframe,
-    availableConfigs,
-    activeIndicatorConfigNos,
+    showReferenceLines,
+    candleDisplayType,
+    priceScaleMode,
+    activeStrategyNo,
+    viewingVersionNo,
     setSymbol,
     setTimeframe,
-    toggleIndicator,
+    setShowReferenceLines,
+    setCandleDisplayType,
+    setPriceScaleMode,
   } = useChartStore();
 
-  const [symbolInput, setSymbolInput] = useState(symbol);
+  const isVersionMode = viewingVersionNo !== null;
 
-  const handleSymbolSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      const trimmed = symbolInput.trim().toUpperCase();
-      if (trimmed && trimmed !== symbol) {
-        setSymbol(trimmed);
+  const { addIndicator } = useChartIndicators();
+
+  const quote = useRealtimeQuote(symbol);
+
+  const { panelOpen, setPanelOpen } = useBacktestStore();
+  const { toolMode, setToolMode, resetTool, bumpRefreshVersion } = useDrawingStore();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const userStrategyNo = activeStrategyNo ?? 0;
+
+  const handleSymbolSelect = useCallback(
+    (sym: string) => {
+      if (sym !== symbol) {
+        setSymbol(sym);
       }
     },
-    [symbolInput, symbol, setSymbol],
+    [symbol, setSymbol],
   );
 
+  const handleAddSubmit = useCallback(
+    async (indicatorType: string, displayName: string, parameters: Record<string, number>) => {
+      await addIndicator({ indicatorType, displayName, parameters: parameters as Record<string, unknown> });
+    },
+    [addIndicator],
+  );
+
+  const handleCandleTypeChange = useCallback(
+    (type: CandleDisplayType) => {
+      setCandleDisplayType(type);
+      updateChartSettings(symbol, timeframe, { candleDisplayType: type }, userStrategyNo).catch(() => {});
+    },
+    [symbol, timeframe, userStrategyNo, setCandleDisplayType],
+  );
+
+  const handlePriceScaleModeToggle = useCallback(() => {
+    const newMode = priceScaleMode === 0 ? 1 : 0;
+    setPriceScaleMode(newMode as 0 | 1);
+    updateChartSettings(symbol, timeframe, { priceScaleMode: newMode }, userStrategyNo).catch(() => {});
+    // Batch update all drawings' style.priceScaleMode + indicator configs, then trigger reload
+    updateDrawingsPriceScaleMode(symbol, timeframe, newMode, userStrategyNo)
+      .then(() => bumpRefreshVersion())
+      .catch(() => {});
+  }, [symbol, timeframe, userStrategyNo, priceScaleMode, setPriceScaleMode, bumpRefreshVersion]);
+
+  const handleRefLinesToggle = useCallback(() => {
+    const newVal = !showReferenceLines;
+    setShowReferenceLines(newVal);
+    updateChartSettings(symbol, timeframe, { showReferenceLines: newVal }, userStrategyNo).catch(() => {});
+  }, [symbol, timeframe, userStrategyNo, showReferenceLines, setShowReferenceLines]);
+
   return (
-    <div className="flex flex-wrap items-center gap-2 px-4 py-2 border-b border-[#2a2e39] bg-[#131722]">
-      {/* Symbol Input */}
-      <form onSubmit={handleSymbolSubmit} className="flex items-center gap-1">
-        <input
-          type="text"
-          value={symbolInput}
-          onChange={(e) => setSymbolInput(e.target.value)}
-          className="w-28 px-2 py-1 text-sm font-mono font-semibold bg-[#0a0e17] border border-[#2a2e39] rounded text-[#d1d4dc] focus:outline-none focus:border-[#555b66]"
-          placeholder="AAPL"
-        />
+    <TooltipProvider>
+      <div className="flex flex-wrap items-center gap-1 px-2 py-1 border-b border-[#2a2e39] bg-[#131722]">
+        {/* Symbol Button → opens search dialog */}
         <Button
-          type="submit"
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-xs text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39]"
+          onClick={() => setSearchOpen(true)}
+          className="h-7 px-2 gap-1 text-sm font-mono font-semibold text-[#d1d4dc] hover:bg-[#2a2e39]"
         >
-          Go
+          {symbol}
+          <ChevronDown className="w-3 h-3 text-[#787b86]" />
         </Button>
-      </form>
 
-      <Separator orientation="vertical" className="h-6 bg-[#2a2e39]" />
+        {/* Realtime Price */}
+        {quote && (
+          <>
+            <Separator orientation="vertical" className="h-5 bg-[#2a2e39]" />
+            <div className="flex items-center gap-1.5 text-xs font-mono">
+              <span className="text-[#d1d4dc] font-semibold">
+                {quote.price.toFixed(2)}
+              </span>
+              {quote.change != null && quote.changePercent != null && (
+                <span
+                  className={
+                    quote.change >= 0 ? 'text-[#26a69a]' : 'text-[#ef5350]'
+                  }
+                >
+                  {quote.change >= 0 ? '+' : ''}
+                  {quote.change.toFixed(2)} ({quote.change >= 0 ? '+' : ''}
+                  {quote.changePercent.toFixed(2)}%)
+                </span>
+              )}
+            </div>
+          </>
+        )}
 
-      {/* Timeframe Selector */}
-      <div className="flex items-center gap-0.5">
-        {TIMEFRAMES.map((tf) => (
-          <Button
-            key={tf.value}
-            variant="ghost"
-            size="sm"
-            onClick={() => setTimeframe(tf.value as Timeframe)}
-            className={`h-7 px-2 text-xs font-mono ${
-              timeframe === tf.value
-                ? 'text-[#d1d4dc] bg-[#2a2e39]'
-                : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1e222d]'
-            }`}
-          >
-            {tf.label}
-          </Button>
-        ))}
-      </div>
+        <Separator orientation="vertical" className="h-5 bg-[#2a2e39]" />
 
-      <Separator orientation="vertical" className="h-6 bg-[#2a2e39]" />
-
-      {/* Indicator Toggles */}
-      <div className="flex items-center gap-1 flex-wrap">
-        <span className="text-xs text-[#787b86] mr-1">Indicators:</span>
-        {availableConfigs.map((config) => {
-          const isActive = activeIndicatorConfigNos.includes(config.indicatorConfigNo);
-          return (
-            <Badge
-              key={config.indicatorConfigNo}
-              variant={isActive ? 'default' : 'outline'}
-              className={`cursor-pointer text-xs font-mono ${
-                isActive
-                  ? 'bg-[#2a2e39] text-[#d1d4dc] border-[#555b66] hover:bg-[#363a45]'
-                  : 'bg-transparent text-[#787b86] border-[#2a2e39] hover:text-[#d1d4dc] hover:border-[#555b66]'
+        {/* Timeframe Selector */}
+        <div className="flex items-center gap-0.5">
+          {TIMEFRAMES.map((tf) => (
+            <Button
+              key={tf.value}
+              variant="ghost"
+              size="sm"
+              onClick={() => setTimeframe(tf.value as Timeframe)}
+              className={`h-7 px-1.5 text-xs font-mono ${
+                timeframe === tf.value
+                  ? 'text-[#d1d4dc] bg-[#2a2e39]'
+                  : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1e222d]'
               }`}
-              onClick={() => toggleIndicator(config.indicatorConfigNo)}
             >
-              {config.displayName}
-            </Badge>
-          );
-        })}
+              {tf.label}
+            </Button>
+          ))}
+        </div>
+
+        <Separator orientation="vertical" className="h-5 bg-[#2a2e39]" />
+
+        {/* Candle Type Dropdown — icon only */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isVersionMode}
+                  className="h-7 w-7 p-0 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] disabled:opacity-40"
+                >
+                  {CANDLE_TYPE_OPTIONS.find((o) => o.value === candleDisplayType)?.icon}
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
+              {CANDLE_TYPE_OPTIONS.find((o) => o.value === candleDisplayType)?.label}
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent
+            align="start"
+            className="bg-[#1e222d] border-[#2a2e39] min-w-[140px]"
+          >
+            {CANDLE_TYPE_OPTIONS.map((option) => (
+              <DropdownMenuItem
+                key={option.value}
+                onClick={() => handleCandleTypeChange(option.value)}
+                className={`text-xs gap-2 cursor-pointer ${
+                  candleDisplayType === option.value
+                    ? 'text-[#d1d4dc] bg-[#2a2e39]'
+                    : 'text-[#787b86] hover:text-[#d1d4dc]'
+                }`}
+              >
+                {option.icon}
+                {option.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Indicators — icon only */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isVersionMode}
+              onClick={() => setDialogOpen(true)}
+              className="h-7 w-7 p-0 text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39] disabled:opacity-40"
+            >
+              <BarChart3 className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
+            Indicators
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Channel — icon only */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isVersionMode}
+              onClick={() => {
+                if (toolMode === 'parallel_channel') {
+                  resetTool();
+                } else {
+                  setToolMode('parallel_channel');
+                }
+              }}
+              className={`h-7 w-7 p-0 ${
+                toolMode === 'parallel_channel'
+                  ? 'bg-[#2962ff] text-white hover:bg-[#1e53e5]'
+                  : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39]'
+              } disabled:opacity-40`}
+            >
+              <TrendingUp className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
+            Parallel Channel
+          </TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="h-5 bg-[#2a2e39]" />
+
+        {/* Reference Lines Toggle — icon only */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRefLinesToggle}
+              className={`h-7 w-7 p-0 ${
+                showReferenceLines
+                  ? 'bg-[#2a2e39] text-[#d1d4dc]'
+                  : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1e222d]'
+              }`}
+            >
+              <Ruler className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
+            Ref Lines
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Log Scale Toggle — text (TradingView style) */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={isVersionMode}
+              onClick={handlePriceScaleModeToggle}
+              className={`h-7 px-2 text-xs font-mono ${
+                priceScaleMode === 1
+                  ? 'bg-[#2a2e39] text-[#d1d4dc]'
+                  : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1e222d]'
+              } disabled:opacity-40`}
+            >
+              Log
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
+            Logarithmic Scale
+          </TooltipContent>
+        </Tooltip>
+
+        <Separator orientation="vertical" className="h-5 bg-[#2a2e39]" />
+
+        {/* Strategy Tester — icon only */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setPanelOpen(!panelOpen)}
+              className={`h-7 w-7 p-0 ${
+                panelOpen
+                  ? 'bg-[#2a2e39] text-[#d1d4dc]'
+                  : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1e222d]'
+              }`}
+            >
+              <FlaskConical className="w-4 h-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
+            Strategy Tester
+          </TooltipContent>
+        </Tooltip>
+
+        {/* Dialogs */}
+        <AddIndicatorDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSubmit={handleAddSubmit}
+        />
+        <SymbolSearchDialog
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          onSelect={handleSymbolSelect}
+        />
       </div>
-    </div>
+    </TooltipProvider>
   );
 }
