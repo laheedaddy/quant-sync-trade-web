@@ -23,6 +23,23 @@ import type {
 import type { VersionSnapshot } from '@/types/strategy';
 import { COMPARISON_OPERATOR_LABELS, CROSS_OPERATOR_LABELS } from '@/types/strategy';
 
+/** UTC 시간을 차트와 동일한 형식(HH:MM)으로 표시 — lightweight-charts는 UTCTimestamp 사용 */
+function formatUtcTime(isoStr: string): string {
+  const d = new Date(isoStr);
+  const h = d.getUTCHours().toString().padStart(2, '0');
+  const m = d.getUTCMinutes().toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
+
+function formatUtcDateTime(isoStr: string): string {
+  const d = new Date(isoStr);
+  const mon = (d.getUTCMonth() + 1).toString().padStart(2, '0');
+  const day = d.getUTCDate().toString().padStart(2, '0');
+  const h = d.getUTCHours().toString().padStart(2, '0');
+  const m = d.getUTCMinutes().toString().padStart(2, '0');
+  return `${mon}-${day} ${h}:${m} UTC`;
+}
+
 interface ChannelDetailViewProps {
   strategyNo: number;
   channel: SignalChannel;
@@ -398,11 +415,16 @@ function MonitorSection({
               >
                 <span className="text-[#d1d4dc] font-medium shrink-0">{ind.displayName}</span>
                 {ind.hasCacheData && ind.values.length > 0 ? (
-                  <span className="text-[#787b86] font-mono text-[10px] truncate">
-                    {Object.entries(ind.values[0].v)
-                      .map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(4) : v}`)
-                      .join('  ')}
-                  </span>
+                  <>
+                    <span className="text-[#787b86] font-mono text-[10px] truncate">
+                      {Object.entries(ind.values[0].v)
+                        .map(([k, v]) => `${k}=${typeof v === 'number' ? v.toFixed(4) : v}`)
+                        .join('  ')}
+                    </span>
+                    <span className="text-[9px] text-[#787b86]/60 shrink-0 ml-auto">
+                      {formatUtcTime(ind.values[0].at)}
+                    </span>
+                  </>
                 ) : (
                   <span className="text-[10px] text-[#787b86] italic">No data</span>
                 )}
@@ -930,7 +952,7 @@ function IndicatorCard({ indicator: ind }: { indicator: ChannelIndicatorCache })
             {ind.values.slice(0, 5).map((entry, idx) => (
               <tr key={idx} className="border-b border-[#2a2e39]/30">
                 <td className="py-1 px-1 text-[#787b86]">
-                  {new Date(entry.at).toLocaleString()}
+                  {formatUtcDateTime(entry.at)}
                 </td>
                 {Object.values(entry.v).map((val, vi) => (
                   <td key={vi} className="text-right py-1 px-1 text-[#d1d4dc] font-mono">
