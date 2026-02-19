@@ -4,6 +4,7 @@ import type {
   ThresholdCondition,
   CrossCondition,
   PriceCondition,
+  PositionCondition,
   Condition,
 } from '@/types/strategy';
 import { isConditionGroup, STRATEGY_LIMITS } from '@/types/strategy';
@@ -47,7 +48,16 @@ export function createDefaultPrice(): PriceCondition {
   };
 }
 
-export function createDefaultLeaf(type: 'THRESHOLD' | 'CROSS' | 'PRICE'): LeafCondition {
+export function createDefaultPosition(): PositionCondition {
+  return {
+    type: 'POSITION',
+    field: 'changePercent',
+    operator: 'LTE',
+    value: -5,
+  };
+}
+
+export function createDefaultLeaf(type: 'THRESHOLD' | 'CROSS' | 'PRICE' | 'POSITION'): LeafCondition {
   switch (type) {
     case 'THRESHOLD':
       return createDefaultThreshold();
@@ -55,6 +65,8 @@ export function createDefaultLeaf(type: 'THRESHOLD' | 'CROSS' | 'PRICE'): LeafCo
       return createDefaultCross();
     case 'PRICE':
       return createDefaultPrice();
+    case 'POSITION':
+      return createDefaultPosition();
   }
 }
 
@@ -152,6 +164,9 @@ export function validateConditionTree(tree: ConditionGroup): string[] {
         case 'PRICE':
           if (node.indicatorRef === null) errors.push('Price: indicator required');
           if (!node.field) errors.push('Price: field required');
+          break;
+        case 'POSITION':
+          if (!node.field) errors.push('Position: field required');
           break;
       }
     }

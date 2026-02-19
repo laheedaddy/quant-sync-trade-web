@@ -27,9 +27,9 @@ export interface LWCHistogramData {
 }
 
 /**
- * Display time offset (seconds) for chart labeling.
- * All timeframes use open-time (standard convention matching TradingView/Binance/FMP).
- * DB `tradedAt` is already open-time, so no offset is needed.
+ * Display time offset for candle timestamps.
+ * Returns 0 for all timeframes — candles are displayed at their open-time
+ * (Binance standard). The backend already stores bucket start times.
  */
 export function getDisplayTimeOffset(_timeframe: string): number {
   return 0;
@@ -155,7 +155,7 @@ const TIMEFRAME_SECONDS: Record<string, number> = {
 
 /**
  * Calculate the display timestamp for the current forming candle.
- * All timeframes use open-time convention: bucket_start.
+ * Uses open-time convention (Binance standard): returns bucket start.
  * e.g., at 09:33:30, 1min bucket start = 09:33 → display = 09:33.
  */
 export function getCurrentBucketTimestamp(timeframe: string): UTCTimestamp {

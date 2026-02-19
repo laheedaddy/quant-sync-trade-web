@@ -83,8 +83,10 @@ export async function fetchChannelStatus(
 export async function fetchChannelMonitor(
   strategyNo: number,
   channelNo: number,
+  currentPrice?: number,
 ): Promise<ChannelMonitor> {
-  return apiClient<ChannelMonitor>(`${base(strategyNo)}/${channelNo}/monitor`);
+  const query = currentPrice != null ? `?currentPrice=${currentPrice}` : '';
+  return apiClient<ChannelMonitor>(`${base(strategyNo)}/${channelNo}/monitor${query}`);
 }
 
 export async function fetchChannelLogs(

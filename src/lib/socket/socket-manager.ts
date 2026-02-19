@@ -8,7 +8,8 @@ class SocketManager {
   private socket: Socket | null = null;
   private quoteListeners = new Map<string, Set<QuoteListener>>();
   private statusListeners = new Set<StatusListener>();
-  private activeSymbols = new Set<string>();
+  /** Reference-counted subscriptions: symbol → subscriber count */
+  private symbolRefCount = new Map<string, number>();
 
   connect() {
     if (this.socket?.connected) return;
@@ -27,7 +28,7 @@ class SocketManager {
     this.socket.on('connect', () => {
       this.notifyStatus('connected');
       // 재연결 시 활성 구독 복원
-      for (const symbol of this.activeSymbols) {
+      for (const symbol of this.symbolRefCount.keys()) {
         this.socket?.emit('subscribe:quote', { symbol });
       }
     });
@@ -59,13 +60,22 @@ class SocketManager {
   }
 
   subscribeQuote(symbol: string) {
-    this.activeSymbols.add(symbol);
-    this.socket?.emit('subscribe:quote', { symbol });
+    const prev = this.symbolRefCount.get(symbol) ?? 0;
+    this.symbolRefCount.set(symbol, prev + 1);
+    // 첫 구독자일 때만 서버에 subscribe 요청
+    if (prev === 0) {
+      this.socket?.emit('subscribe:quote', { symbol });
+    }
   }
 
   unsubscribeQuote(symbol: string) {
-    this.activeSymbols.delete(symbol);
-    this.socket?.emit('unsubscribe:quote', { symbol });
+    const prev = this.symbolRefCount.get(symbol) ?? 0;
+    if (prev <= 1) {
+      this.symbolRefCount.delete(symbol);
+      this.socket?.emit('unsubscribe:quote', { symbol });
+    } else {
+      this.symbolRefCount.set(symbol, prev - 1);
+    }
   }
 
   onQuote(symbol: string, listener: QuoteListener): () => void {

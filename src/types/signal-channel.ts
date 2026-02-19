@@ -102,7 +102,7 @@ export interface ChannelStatus {
 // ──────────────────────────────────────────────
 
 export interface LeafConditionEval {
-  type: 'THRESHOLD' | 'CROSS' | 'PRICE';
+  type: 'THRESHOLD' | 'CROSS' | 'PRICE' | 'POSITION';
   passed: boolean;
   indicatorRef: number;
   field: string;

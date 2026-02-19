@@ -20,7 +20,7 @@ export type ComparisonOperator = (typeof COMPARISON_OPERATORS)[number];
 export const CROSS_OPERATORS = ['CROSS_ABOVE', 'CROSS_BELOW'] as const;
 export type CrossOperator = (typeof CROSS_OPERATORS)[number];
 
-export const CONDITION_TYPES = ['THRESHOLD', 'CROSS', 'PRICE'] as const;
+export const CONDITION_TYPES = ['THRESHOLD', 'CROSS', 'PRICE', 'POSITION'] as const;
 export type ConditionType = (typeof CONDITION_TYPES)[number];
 
 export const GROUP_OPERATORS = ['AND', 'OR'] as const;
@@ -36,6 +36,9 @@ export const INDICATOR_INDEX_OPTIONS = [
 
 export const PRICE_FIELDS = ['closePrice', 'openPrice', 'highPrice', 'lowPrice'] as const;
 export type PriceField = (typeof PRICE_FIELDS)[number];
+
+export const POSITION_FIELDS = ['changePercent', 'trailingPercent', 'highChangePercent', 'holdingMinutes'] as const;
+export type PositionField = (typeof POSITION_FIELDS)[number];
 
 export const VERSION_TYPES = ['MAJOR', 'MINOR'] as const;
 export type VersionType = (typeof VERSION_TYPES)[number];
@@ -72,6 +75,13 @@ export const PRICE_FIELD_LABELS: Record<PriceField, string> = {
   lowPrice: 'Low',
 };
 
+export const POSITION_FIELD_LABELS: Record<PositionField, string> = {
+  changePercent: '수익률 %',
+  trailingPercent: '고점 대비 %',
+  highChangePercent: '최고 수익률 %',
+  holdingMinutes: '보유 시간(분)',
+};
+
 // ──────────────────────────────────────────────
 // Condition Tree types (matches backend exactly)
 // ──────────────────────────────────────────────
@@ -105,7 +115,14 @@ export interface PriceCondition {
   index?: number; // 0~4, default 0
 }
 
-export type LeafCondition = ThresholdCondition | CrossCondition | PriceCondition;
+export interface PositionCondition {
+  type: 'POSITION';
+  field: PositionField;
+  operator: ComparisonOperator;
+  value: number | [number, number];
+}
+
+export type LeafCondition = ThresholdCondition | CrossCondition | PriceCondition | PositionCondition;
 
 export interface ConditionGroup {
   logic: GroupOperator;

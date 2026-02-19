@@ -50,6 +50,13 @@ function summarizeLeafConditions(
 
   const parts: string[] = [];
   for (const leaf of leaves) {
+    if (leaf.type === 'POSITION') {
+      const op = leaf.operator === 'GT' ? '>' : leaf.operator === 'LT' ? '<' : leaf.operator === 'GTE' ? '>=' : leaf.operator === 'LTE' ? '<=' : leaf.operator === 'EQ' ? '=' : leaf.operator;
+      const val = typeof leaf.value === 'number' ? leaf.value : `${leaf.value[0]}~${leaf.value[1]}`;
+      parts.push(`${leaf.field} ${op} ${val}`);
+      continue;
+    }
+
     const ind = indicators.find(
       (i) => Number(i.userIndicatorConfigNo) === Number(leaf.indicatorRef),
     );

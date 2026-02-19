@@ -65,7 +65,9 @@ export function ConditionGroupNode({ group, depth, onChange, onDelete }: Conditi
           </DropdownMenuTrigger>
           <DropdownMenuContent className="bg-[#1e222d] border-[#2a2e39]">
             {CONDITION_TYPES.map((ct) => (
-              <DropdownMenuItem key={ct} onClick={() => handleAddCondition(ct)} className="text-[#d1d4dc] text-xs">{ct}</DropdownMenuItem>
+              <DropdownMenuItem key={ct} onClick={() => handleAddCondition(ct)} className="text-[#d1d4dc] text-xs">
+                {ct === 'POSITION' ? 'POSITION (SL/TP)' : ct}
+              </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>

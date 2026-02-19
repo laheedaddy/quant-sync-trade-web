@@ -114,6 +114,8 @@ export function CandlestickChart({
   const prevHACandleRef = useRef<{ open: number; close: number } | null>(null);
   // Volume info for realtime volume bar color update
   const lastVolumeRef = useRef<{ value: number; openPrice: number }>({ value: 0, openPrice: 0 });
+  // Last known indicator value per overlay series (for extending to forming candle)
+  const lastIndicatorValueRef = useRef<Map<string, number>>(new Map());
   // Ref for timeframe (used in tick effect without triggering re-render)
   const timeframeRef = useRef(timeframe);
   timeframeRef.current = timeframe;
@@ -507,6 +509,15 @@ export function CandlestickChart({
         volumeSeries.update({ time: newTime, value: 0, color: 'rgba(38, 166, 154, 0.3)' });
       }
 
+      // Extend overlay indicator series to new bucket timestamp
+      for (const [key, series] of seriesRef.current) {
+        if (!key.startsWith('indicator-overlay-')) continue;
+        const lastValue = lastIndicatorValueRef.current.get(key);
+        if (lastValue != null) {
+          series.update({ time: newTime, value: lastValue });
+        }
+      }
+
       // Trigger delayed refetch (3s delay so the collector has time to update Redis)
       // Guard: skip refetch if market is fully closed (no fresh tick within 10s)
       if (refetchTimeoutRef.current) clearTimeout(refetchTimeoutRef.current);
@@ -609,6 +620,13 @@ export function CandlestickChart({
 
         const lineData = transformIndicatorLine(ind.data, seriesConfig.key, timeframe);
         if (lineData.length > 0) {
+          const lastPoint = lineData[lineData.length - 1];
+          lastIndicatorValueRef.current.set(seriesId, lastPoint.value);
+          // Extend indicator line to the forming candle's timestamp
+          const lastBar = lastBarRef.current;
+          if (lastBar && lastBar.time > lastPoint.time) {
+            lineData.push({ time: lastBar.time, value: lastPoint.value });
+          }
           series.setData(lineData);
         }
       }
