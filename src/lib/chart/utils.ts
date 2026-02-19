@@ -27,13 +27,12 @@ export interface LWCHistogramData {
 }
 
 /**
- * Sub-day timeframes use close-time labeling (matching Korean brokerages like Toss).
- * FMP's 1min candle at 09:33 (open-time) → displayed as 09:34 (close-time).
- * Daily/weekly candles keep their date as-is.
+ * Display time offset for candle timestamps.
+ * Returns 0 for all timeframes — candles are displayed at their open-time
+ * (Binance standard). The backend already stores bucket start times.
  */
-export function getDisplayTimeOffset(timeframe: string): number {
-  if (timeframe === '1day' || timeframe === '1week') return 0;
-  return TIMEFRAME_SECONDS[timeframe] ?? 0;
+export function getDisplayTimeOffset(_timeframe: string): number {
+  return 0;
 }
 
 function toTimestamp(dateStr: string, offsetSeconds = 0): UTCTimestamp {
@@ -156,8 +155,8 @@ const TIMEFRAME_SECONDS: Record<string, number> = {
 
 /**
  * Calculate the display timestamp for the current forming candle.
- * Sub-day timeframes use close-time convention: bucket_start + interval.
- * e.g., at 09:33:30, 1min bucket start = 09:33 → display = 09:34.
+ * Uses open-time convention (Binance standard): returns bucket start.
+ * e.g., at 09:33:30, 1min bucket start = 09:33 → display = 09:33.
  */
 export function getCurrentBucketTimestamp(timeframe: string): UTCTimestamp {
   const now = new Date();
@@ -174,14 +173,14 @@ export function getCurrentBucketTimestamp(timeframe: string): UTCTimestamp {
     return (Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) / 1000)) as UTCTimestamp;
   }
 
-  // Minute-based timeframes: floor to interval boundary + offset (close-time convention)
+  // Minute-based timeframes: floor to interval boundary (open-time convention)
   const utcMs = Date.UTC(
     now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
     now.getUTCHours(), now.getUTCMinutes(),
   );
   const intervalMs = interval * 1000;
   const bucketStart = Math.floor(utcMs / intervalMs) * intervalMs / 1000;
-  return (bucketStart + interval) as UTCTimestamp;
+  return bucketStart as UTCTimestamp;
 }
 
 /** Extract sorted timestamps from candles (with display offset applied) */

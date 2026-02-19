@@ -22,9 +22,11 @@ interface ChartLegendProps {
   activeConfigNos?: number[];
   drawings?: UserChartDrawing[];
   drawingActions?: DrawingActions;
+  /** 크로스헤어 위치의 Unix timestamp (초 단위) — 드로잉 채널 값 계산용 */
+  crosshairTimeSec?: number | null;
 }
 
-export function ChartLegend({ candle, indicators, indicatorActions, activeConfigNos, drawings, drawingActions }: ChartLegendProps) {
+export function ChartLegend({ candle, indicators, indicatorActions, activeConfigNos, drawings, drawingActions, crosshairTimeSec }: ChartLegendProps) {
   if (!candle) return null;
 
   const isUp = candle.closePrice >= candle.openPrice;
@@ -63,6 +65,7 @@ export function ChartLegend({ candle, indicators, indicatorActions, activeConfig
           drawing={d}
           index={idx}
           actions={drawingActions}
+          crosshairTimeSec={crosshairTimeSec}
         />
       ))}
     </div>
@@ -126,14 +129,19 @@ interface DrawingLegendLineProps {
   drawing: UserChartDrawing;
   index: number;
   actions?: DrawingActions;
+  crosshairTimeSec?: number | null;
 }
 
-function DrawingLegendLine({ drawing, index, actions }: DrawingLegendLineProps) {
+function DrawingLegendLine({ drawing, index, actions, crosshairTimeSec }: DrawingLegendLineProps) {
   const isSnapshot = drawing.userChartDrawingNo < 0;
   const color = isSnapshot ? '#ff9800' : (drawing.style.lineColor ?? '#2962ff');
   const label = isSnapshot
     ? `Channel #${index + 1}`
     : `Channel #${drawing.userChartDrawingNo}`;
+
+  const channelValues = crosshairTimeSec != null
+    ? computeChannelAtTime(drawing.points, drawing.style.priceScaleMode ?? 0, crosshairTimeSec)
+    : null;
 
   return (
     <div className="group/drawing flex items-center gap-1.5 text-xs font-mono">
@@ -156,8 +164,68 @@ function DrawingLegendLine({ drawing, index, actions }: DrawingLegendLineProps) 
           </button>
         </div>
       )}
+
+      {channelValues && (
+        <>
+          <span className="text-[#787b86]">U</span>
+          <span style={{ color }} className="opacity-80">{formatPrice(channelValues.upper)}</span>
+          <span className="text-[#787b86]">M</span>
+          <span style={{ color }} className="opacity-80">{formatPrice(channelValues.middle)}</span>
+          <span className="text-[#787b86]">L</span>
+          <span style={{ color }} className="opacity-80">{formatPrice(channelValues.lower)}</span>
+        </>
+      )}
     </div>
   );
+}
+
+/**
+ * 드로잉 채널의 특정 시점 upper/middle/lower를 계산합니다.
+ * 서버 indicator-algorithm.service.ts의 computeDrawingChannelAtTime()과 동일한 수식.
+ */
+function computeChannelAtTime(
+  points: import('@/types/chart').DrawingPoint[],
+  priceScaleMode: number,
+  timestampSec: number,
+): { upper: number; middle: number; lower: number } | null {
+  if (points.length < 3) return null;
+
+  const p0Time = points[0].time;
+  const p0Price = points[0].price;
+  const p1Time = points[1].time;
+  const p1Price = points[1].price;
+  const p2Time = points[2].time;
+  const p2Price = points[2].price;
+
+  if (!p0Time || !p0Price || !p1Time || !p1Price || !p2Time || !p2Price) return null;
+  if (p1Time === p0Time) return null;
+
+  // offset = p2와 line1(p0→p1)의 p2 시점 값 차이 (서버는 투영 후 전달하므로 여기서 직접 계산)
+  if (priceScaleMode === 1 && p0Price > 0 && p1Price > 0 && p2Price > 0) {
+    const logP0 = Math.log(p0Price);
+    const logSlope = (Math.log(p1Price) - logP0) / (p1Time - p0Time);
+    const logLine1AtP2 = logP0 + logSlope * (p2Time - p0Time);
+    const logOffset = Math.log(p2Price) - logLine1AtP2;
+    const logLine1 = logP0 + logSlope * (timestampSec - p0Time);
+    const line1 = Math.exp(logLine1);
+    const line2 = Math.exp(logLine1 + logOffset);
+    return {
+      upper: Math.max(line1, line2),
+      middle: Math.exp(logLine1 + logOffset / 2),
+      lower: Math.min(line1, line2),
+    };
+  }
+
+  const slope = (p1Price - p0Price) / (p1Time - p0Time);
+  const line1AtP2 = p0Price + slope * (p2Time - p0Time);
+  const offset = p2Price - line1AtP2;
+  const line1 = p0Price + slope * (timestampSec - p0Time);
+  const line2 = line1 + offset;
+  return {
+    upper: Math.max(line1, line2),
+    middle: (line1 + line2) / 2,
+    lower: Math.min(line1, line2),
+  };
 }
 
 function getIndicatorColor(type: string): string {

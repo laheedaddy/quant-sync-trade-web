@@ -195,7 +195,7 @@ ConditionGroup {
   conditions: (ConditionGroup | LeafCondition)[];
 }
 
-LeafCondition = ThresholdCondition | CrossCondition | PriceCondition;
+LeafCondition = ThresholdCondition | CrossCondition | PriceCondition | PositionCondition;
 ```
 
 ### 조건 타입별 필드
@@ -205,6 +205,7 @@ LeafCondition = ThresholdCondition | CrossCondition | PriceCondition;
 | THRESHOLD | `indicatorRef`, `field`, `operator`, `value` (number 또는 [min, max]) |
 | CROSS | `indicatorRef`, `field`, `operator`, `targetRef`, `targetField` |
 | PRICE | `indicatorRef`, `field`, `operator`, `priceField` |
+| POSITION | `field` (changePercent/trailingPercent/highChangePercent/holdingMinutes), `operator`, `value` — 지표 참조 없음 |
 
 ### 지표 필드 매핑 (indicator-fields.ts)
 
@@ -436,3 +437,57 @@ npx shadcn@latest add [component-name]
   - 실시간: 틱(체결가)만 유의미하므로 `openPrice=highPrice=lowPrice=closePrice=tickPrice`
   - Rule Editor에 안내 문구 추가 (`signal-rule-editor.tsx`): "PRICE 조건의 O/H/L/C는 백테스트에서만 구분"
 - **설계 원칙**: PRICE 조건의 `priceField` (open/high/low/close)는 백테스트에서 캔들 내 세밀한 비교에 사용. 실시간에서는 항상 현재 체결가와 비교
+
+### 2026-02-19: POSITION (SL/TP) 조건 UI 추가
+- **타입 확장** (`types/strategy.ts`):
+  - `CONDITION_TYPES`에 `'POSITION'` 추가
+  - `POSITION_FIELDS` 상수: `changePercent`, `trailingPercent`, `highChangePercent`, `holdingMinutes`
+  - `POSITION_FIELD_LABELS` 한글 레이블: 수익률 %, 고점 대비 %, 최고 수익률 %, 보유 시간(분)
+  - `PositionCondition` 인터페이스, `LeafCondition` 유니온에 추가
+- **새 컴포넌트** (`condition-tree/position-condition-form.tsx`):
+  - 필드 선택 (4종) + 연산자 선택 (GT/GTE/LT/LTE/EQ) + 값 입력 + 단위 표시 (%/분)
+  - 지표 선택 없음 (POSITION은 지표 참조 불필요)
+- **조건 빌더 통합**:
+  - `condition-leaf-node.tsx`: POSITION 뱃지 (빨간색 `#ef5350`, 'SL/TP' 레이블) + PositionConditionForm 렌더링
+  - `condition-group-node.tsx`: "Add condition" 드롭다운에 `POSITION (SL/TP)` 메뉴 추가
+- **헬퍼 업데이트** (`lib/strategy/condition-helpers.ts`):
+  - `createDefaultPosition()`: `{ type: 'POSITION', field: 'changePercent', operator: 'LTE', value: -5 }`
+  - `createDefaultLeaf()`에 `'POSITION'` 케이스 추가
+  - `validateConditionTree()`에 POSITION 검증 (field 필수)
+- **규칙 요약 수정** (`signal-rule-list.tsx`): POSITION 조건 요약 표시 (지표명 대신 필드명 표시)
+
+### 2026-02-19: 차트 캔들 타임스탬프 — Binance 표준(시작시각) 전환
+- **오프셋 제거** (`lib/chart/utils.ts`):
+  - `getDisplayTimeOffset()`: 항상 0 반환 (기존: 분봉에 interval 초 추가)
+  - `getCurrentBucketTimestamp()`: `bucketStart` 반환 (기존: `bucketStart + interval`)
+  - JSDoc 업데이트: "open-time convention (Binance standard)"
+- **영향**: `transformCandles`, `transformVolume`, `transformIndicatorLine` 등 모든 차트 데이터가 open-time 기준 표시
+
+### 2026-02-19: 차트 지표 실시간 갱신 + WebSocket 안정화
+- **refreshLatest 지표 포함** (`hooks/use-chart-data.ts`):
+  - `refreshLatest`에서 `candlesOnly: true` 제거 → 지표 데이터도 함께 갱신
+  - `mergeLatestIndicators()`: 기존 지표 데이터에 최신 값 tail-merge
+- **WebSocket 구독 참조 카운팅** (`lib/socket/socket-manager.ts`):
+  - `activeSymbols: Set<string>` → `symbolRefCount: Map<string, number>`
+  - 여러 컴포넌트가 같은 심볼 구독 시 마지막 해제까지 유지 (탭 전환 시 끊김 방지)
+- **지표 overlay 라인 forming candle 연장** (`components/chart/candlestick-chart.tsx`):
+  - `lastIndicatorValueRef`: 마지막 지표 값 추적
+  - overlay 라인을 forming candle 타임스탬프까지 연장
+  - 버킷 전환 시 overlay 지표도 새 시간대에 연장
+
+### 2026-02-19: 채널 모니터 POSITION 수정 + 실시간 표시 + 자동 갱신
+- **POSITION changePercent -100% 버그 수정**:
+  - 백엔드: `getChannelMonitor()`에 `currentPrice` 쿼리 파라미터 추가 → EvaluationContext에 반영
+  - 프론트엔드: `fetchChannelMonitor()`에 `currentPrice` 전달, `tickPriceRef`로 최신 체결가 사용
+- **POSITION 표시 형식 개선** (`channel-detail-view.tsx`):
+  - `Ref#0` 제거 → 뱃지 `SL/TP` (빨간색), 필드 한글화 (`수익률`, `고점 대비`), 단위 표시 (`%`/`분`)
+  - `LeafConditionEval.type`에 `'POSITION'` 추가 (`types/signal-channel.ts`)
+- **POSITION 수익률 실시간 갱신**:
+  - `changePercent`: `tickPrice`와 `lastSignalPrice`로 매 렌더마다 재계산 + `(live)` 라벨
+  - 수익률 양수 초록/음수 빨강 색상 구분
+  - `lastSignalPrice` prop 체인: MonitorSection → RuleEvalCard → ConditionNode → LeafConditionRow
+- **매수가 옆 수익률 표시**: 마지막 시그널이 BUY일 때 Monitor 상단에 `+0.47%` (초록) / `-2.31%` (빨강)
+- **버킷 전환 자동 갱신** (`channel-detail-view.tsx`):
+  - `ChannelDetailView`에서 1초 간격 `getCurrentBucketTimestamp()` 체크
+  - 타임프레임 경계(예: 35분→36분) 넘어가면 Status + Monitor API 자동 재호출
+  - `bucketKey` 상태로 MonitorSection에 갱신 트리거 전달

@@ -2,7 +2,7 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { CrossCondition, IndicatorType } from '@/types/strategy';
-import { CROSS_OPERATORS, CROSS_OPERATOR_LABELS } from '@/types/strategy';
+import { CROSS_OPERATORS, CROSS_OPERATOR_LABELS, INDICATOR_INDEX_OPTIONS } from '@/types/strategy';
 import { useConditionIndicators } from '@/hooks/use-condition-indicators';
 import { useChartStore } from '@/stores/chart-store';
 import { getIndicatorFields, getDefaultField } from '@/lib/strategy/indicator-fields';
@@ -49,6 +49,13 @@ export function CrossConditionForm({ condition, onChange }: CrossConditionFormPr
         </SelectContent>
       </Select>
 
+      <Select value={(condition.index ?? 0).toString()} onValueChange={(v) => onChange({ ...condition, index: parseInt(v) })}>
+        <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>
+        <SelectContent className="bg-[#1e222d] border-[#2a2e39]">
+          {INDICATOR_INDEX_OPTIONS.map((opt) => (<SelectItem key={opt.value} value={opt.value.toString()} className="text-[#d1d4dc] text-xs">{opt.label}</SelectItem>))}
+        </SelectContent>
+      </Select>
+
       <Select value={condition.operator} onValueChange={(v) => onChange({ ...condition, operator: v as CrossCondition['operator'] })}>
         <SelectTrigger className="w-28 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>
         <SelectContent className="bg-[#1e222d] border-[#2a2e39]">
@@ -67,6 +74,13 @@ export function CrossConditionForm({ condition, onChange }: CrossConditionFormPr
         <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc] disabled:opacity-40"><SelectValue placeholder={targetFields.length === 0 ? '—' : 'Field'} /></SelectTrigger>
         <SelectContent className="bg-[#1e222d] border-[#2a2e39]">
           {targetFields.map((f) => (<SelectItem key={f.key} value={f.key} className="text-[#d1d4dc] text-xs">{f.label}</SelectItem>))}
+        </SelectContent>
+      </Select>
+
+      <Select value={(condition.targetIndex ?? 0).toString()} onValueChange={(v) => onChange({ ...condition, targetIndex: parseInt(v) })}>
+        <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>
+        <SelectContent className="bg-[#1e222d] border-[#2a2e39]">
+          {INDICATOR_INDEX_OPTIONS.map((opt) => (<SelectItem key={opt.value} value={opt.value.toString()} className="text-[#d1d4dc] text-xs">{opt.label}</SelectItem>))}
         </SelectContent>
       </Select>
 

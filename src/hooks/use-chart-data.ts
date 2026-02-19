@@ -102,27 +102,28 @@ export function useChartData() {
   }, [loadData]);
 
   /**
-   * 경량 갱신: 최근 10개 캔들만 (인디케이터 생략) → 기존 데이터에 머지
-   * 매분 버킷 전환 시 사용 (full refetch 대비 DB 1회 조회, 인디케이터 0회)
+   * 경량 갱신: 최근 10개 캔들 + 인디케이터 → 기존 데이터에 머지
+   * 매분 버킷 전환 시 사용하여 인디케이터도 최신 캔들까지 연장
    */
   const refreshLatest = useCallback(async () => {
     try {
       const result = await fetchChartData(symbol, {
         timeframe,
         limit: 10,
-        candlesOnly: true,
+        userStrategyNo,
+        userStrategyVersionNo: viewingVersionNo ?? undefined,
       });
 
       setData((prev) => ({
         ...prev,
         candles: mergeLatestCandles(prev.candles, result.candles),
-        // indicators 유지 — 매분 인디케이터 1~2포인트 차이는 무시
+        indicators: mergeLatestIndicators(prev.indicators, result.indicators),
       }));
     } catch {
       // 경량 갱신 실패 시 무시 (다음 틱에서 재시도)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [symbol, timeframe]);
+  }, [symbol, timeframe, userStrategyNo, viewingVersionNo]);
 
   useEffect(() => {
     cursorRef.current = undefined;
@@ -169,6 +170,45 @@ function mergeIndicators(
       merged[idx] = {
         ...merged[idx],
         data: [...inc.data, ...merged[idx].data],
+      };
+    } else {
+      merged.push(inc);
+    }
+  }
+  return merged;
+}
+
+/**
+ * 인디케이터 꼬리 머지: 겹치는 구간은 최신 데이터로 교체, 새 포인트는 추가.
+ * refreshLatest에서 사용 (최근 N개 캔들의 인디케이터 갱신).
+ */
+function mergeLatestIndicators(
+  existing: ChartIndicator[],
+  latest: ChartIndicator[],
+): ChartIndicator[] {
+  if (latest.length === 0) return existing;
+
+  const merged = [...existing];
+  for (const inc of latest) {
+    const idx = merged.findIndex(
+      (e) => e.indicatorConfigNo === inc.indicatorConfigNo,
+    );
+    if (idx >= 0) {
+      // 기존 데이터 꼬리에 최신 데이터 머지 (mergeLatestCandles와 동일 전략)
+      const existingData = merged[idx].data;
+      const latestData = inc.data;
+      if (latestData.length === 0) continue;
+
+      const firstLatestTime = new Date(latestData[0].calculatedAt).getTime();
+      const cutIndex = existingData.findIndex(
+        (d) => new Date(d.calculatedAt).getTime() >= firstLatestTime,
+      );
+
+      merged[idx] = {
+        ...merged[idx],
+        data: cutIndex === -1
+          ? [...existingData, ...latestData]
+          : [...existingData.slice(0, cutIndex), ...latestData],
       };
     } else {
       merged.push(inc);
