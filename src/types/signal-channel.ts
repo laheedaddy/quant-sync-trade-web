@@ -1,6 +1,27 @@
 import type { VersionSnapshot } from './strategy';
 
 // ──────────────────────────────────────────────
+// Market Session
+// ──────────────────────────────────────────────
+
+export type MarketSession =
+  | 'PRE_MARKET'
+  | 'REGULAR'
+  | 'AFTER_MARKET'
+  | 'OVERNIGHT'
+  | 'WEEKEND'
+  | 'CRYPTO_24_7';
+
+export const MARKET_SESSION_LABELS: Record<MarketSession, string> = {
+  PRE_MARKET: 'Pre-Market',
+  REGULAR: 'Regular Hours',
+  AFTER_MARKET: 'After-Market',
+  OVERNIGHT: 'Overnight',
+  WEEKEND: 'Weekend',
+  CRYPTO_24_7: 'Crypto 24/7',
+};
+
+// ──────────────────────────────────────────────
 // Signal Channel types
 // ──────────────────────────────────────────────
 
@@ -71,6 +92,9 @@ export interface ChannelStatus {
   cooldownSecondsRemaining: number;
   isEvalLocked: boolean;
   indicators: ChannelIndicatorCache[];
+  marketSession: MarketSession;
+  isQuoteAvailable: boolean;
+  isCrypto: boolean;
 }
 
 // ──────────────────────────────────────────────
@@ -112,6 +136,9 @@ export interface ChannelMonitor {
   nextEvaluateRule: 'BUY' | 'SELL';
   indicators: ChannelIndicatorCache[];
   ruleEvaluations: RuleEvalResult[];
+  marketSession: MarketSession;
+  isQuoteAvailable: boolean;
+  isCrypto: boolean;
 }
 
 // ──────────────────────────────────────────────

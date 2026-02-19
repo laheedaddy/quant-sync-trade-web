@@ -436,3 +436,18 @@ npx shadcn@latest add [component-name]
   - 실시간: 틱(체결가)만 유의미하므로 `openPrice=highPrice=lowPrice=closePrice=tickPrice`
   - Rule Editor에 안내 문구 추가 (`signal-rule-editor.tsx`): "PRICE 조건의 O/H/L/C는 백테스트에서만 구분"
 - **설계 원칙**: PRICE 조건의 `priceField` (open/high/low/close)는 백테스트에서 캔들 내 세밀한 비교에 사용. 실시간에서는 항상 현재 체결가와 비교
+
+### 2026-02-19: 시장 세션 상태 표시 (모니터링 UI)
+- **타입 확장** (`types/signal-channel.ts`)
+  - `MarketSession` 타입 + `MARKET_SESSION_LABELS` 레이블 매핑 추가
+  - `ChannelStatus`, `ChannelMonitor` 인터페이스에 `marketSession`, `isQuoteAvailable`, `isCrypto` 필드 추가
+- **모니터 탭 UI** (`components/signal-channel/channel-detail-view.tsx`)
+  - MonitorSection 상단에 시장 세션 배너 추가
+  - 시세 가능 시: 초록 배너 + 펄스 점 + "Quotes active"
+  - 시세 불가 시: 주황 배너 + "Quotes paused" + FMP 가용 시간 안내
+  - Tick Price "waiting..." → 시세 불가 시 "market closed" (주황색) 표시
+- **백엔드 수정** (quant-sync-trade):
+  - `MARKET_SESSION` 상수 + `MarketSessionValue` 타입 (`biz.constants.ts`)
+  - `getMarketSession()` 함수 (`market-hours.util.ts`)
+  - `GetChannelStatusDto`, `GetChannelMonitorDto`에 3개 필드 추가
+  - `SignalChannelService`에서 시장 상태 계산 (크립토: 24/7, 주식: FMP 가용 시간 기반)

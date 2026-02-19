@@ -19,7 +19,9 @@ import type {
   ConditionGroupEval,
   LeafConditionEval,
   RuleEvalResult,
+  MarketSession,
 } from '@/types/signal-channel';
+import { MARKET_SESSION_LABELS } from '@/types/signal-channel';
 import type { VersionSnapshot } from '@/types/strategy';
 import { COMPARISON_OPERATOR_LABELS, CROSS_OPERATOR_LABELS } from '@/types/strategy';
 
@@ -325,8 +327,41 @@ function MonitorSection({
   const signalAt = monitor?.lastSignalAt;
   const timeAgo = signalAt ? formatTimeAgo(signalAt) : null;
 
+  const marketSession = monitor?.marketSession;
+  const isQuoteAvailable = monitor?.isQuoteAvailable ?? true;
+
   return (
     <div className="p-3 space-y-3">
+      {/* ── Market Session Banner ── */}
+      {marketSession && (
+        isQuoteAvailable ? (
+          <div className="flex items-center justify-between px-2.5 py-1.5 rounded border border-[#26a69a]/30 bg-[#26a69a]/10">
+            <div className="flex items-center gap-2">
+              <span className="inline-block w-2 h-2 rounded-full bg-[#26a69a] animate-pulse" />
+              <span className="text-xs font-medium text-[#26a69a]">
+                {MARKET_SESSION_LABELS[marketSession] ?? marketSession}
+              </span>
+            </div>
+            <span className="text-[10px] text-[#26a69a]">Quotes active</span>
+          </div>
+        ) : (
+          <div className="px-2.5 py-1.5 rounded border border-[#ff9800]/30 bg-[#ff9800]/10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="inline-block w-2 h-2 rounded-full bg-[#ff9800]" />
+                <span className="text-xs font-medium text-[#ff9800]">
+                  {MARKET_SESSION_LABELS[marketSession] ?? marketSession}
+                </span>
+              </div>
+              <span className="text-[10px] text-[#ff9800]">Quotes paused</span>
+            </div>
+            <p className="text-[10px] text-[#ff9800]/70 mt-0.5">
+              Stock quotes available 08:00~17:00 ET Mon~Fri
+            </p>
+          </div>
+        )
+      )}
+
       {/* ── Top: Tick Price + State ── */}
       <div className="p-2.5 rounded border border-[#2a2e39] bg-[#131722]">
         <div className="flex items-center gap-2 flex-wrap">
@@ -335,6 +370,8 @@ function MonitorSection({
             <span className="text-sm font-mono font-medium text-[#d1d4dc]">
               ${tickPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
             </span>
+          ) : !isQuoteAvailable ? (
+            <span className="text-xs text-[#ff9800] italic">market closed</span>
           ) : (
             <span className="text-xs text-[#787b86] italic">waiting...</span>
           )}

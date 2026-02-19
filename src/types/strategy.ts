@@ -26,6 +26,14 @@ export type ConditionType = (typeof CONDITION_TYPES)[number];
 export const GROUP_OPERATORS = ['AND', 'OR'] as const;
 export type GroupOperator = (typeof GROUP_OPERATORS)[number];
 
+export const INDICATOR_INDEX_OPTIONS = [
+  { value: 0, label: '현재' },
+  { value: 1, label: '1봉 전' },
+  { value: 2, label: '2봉 전' },
+  { value: 3, label: '3봉 전' },
+  { value: 4, label: '4봉 전' },
+] as const;
+
 export const PRICE_FIELDS = ['closePrice', 'openPrice', 'highPrice', 'lowPrice'] as const;
 export type PriceField = (typeof PRICE_FIELDS)[number];
 
@@ -74,6 +82,7 @@ export interface ThresholdCondition {
   field: string;
   operator: ComparisonOperator;
   value: number | [number, number];
+  index?: number; // 0~4, default 0 (0=최신 완성 캔들)
 }
 
 export interface CrossCondition {
@@ -83,6 +92,8 @@ export interface CrossCondition {
   operator: CrossOperator | 'GT' | 'LT';
   targetRef: number | null;
   targetField: string | null;
+  index?: number; // source 인덱스 0~4, default 0
+  targetIndex?: number; // target 인덱스 0~4, default 0
 }
 
 export interface PriceCondition {
@@ -91,6 +102,7 @@ export interface PriceCondition {
   field: string;
   operator: ComparisonOperator;
   priceField: PriceField;
+  index?: number; // 0~4, default 0
 }
 
 export type LeafCondition = ThresholdCondition | CrossCondition | PriceCondition;

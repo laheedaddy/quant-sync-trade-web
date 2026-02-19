@@ -2,7 +2,7 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { PriceCondition, PriceField, IndicatorType } from '@/types/strategy';
-import { COMPARISON_OPERATORS, COMPARISON_OPERATOR_LABELS, PRICE_FIELDS, PRICE_FIELD_LABELS } from '@/types/strategy';
+import { COMPARISON_OPERATORS, COMPARISON_OPERATOR_LABELS, PRICE_FIELDS, PRICE_FIELD_LABELS, INDICATOR_INDEX_OPTIONS } from '@/types/strategy';
 import { useConditionIndicators } from '@/hooks/use-condition-indicators';
 import { useChartStore } from '@/stores/chart-store';
 import { getIndicatorFields, getDefaultField } from '@/lib/strategy/indicator-fields';
@@ -52,6 +52,13 @@ export function PriceConditionForm({ condition, onChange }: PriceConditionFormPr
         <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>
         <SelectContent className="bg-[#1e222d] border-[#2a2e39]">
           {PRICE_FIELDS.map((pf) => (<SelectItem key={pf} value={pf} className="text-[#d1d4dc] text-xs">{PRICE_FIELD_LABELS[pf]}</SelectItem>))}
+        </SelectContent>
+      </Select>
+
+      <Select value={(condition.index ?? 0).toString()} onValueChange={(v) => onChange({ ...condition, index: parseInt(v) })}>
+        <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>
+        <SelectContent className="bg-[#1e222d] border-[#2a2e39]">
+          {INDICATOR_INDEX_OPTIONS.map((opt) => (<SelectItem key={opt.value} value={opt.value.toString()} className="text-[#d1d4dc] text-xs">{opt.label}</SelectItem>))}
         </SelectContent>
       </Select>
 

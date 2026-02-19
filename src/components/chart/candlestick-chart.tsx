@@ -783,6 +783,7 @@ export function CandlestickChart({
           activeConfigNos={activeConfigNos}
           drawings={drawings}
           drawingActions={drawingActions}
+          crosshairTimeSec={hoveredCandle ? Math.floor(new Date(hoveredCandle.tradedAt).getTime() / 1000) : null}
         />
       )}
 
