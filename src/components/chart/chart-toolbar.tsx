@@ -21,7 +21,8 @@ import { useChartIndicators } from '@/hooks/use-chart-indicators';
 import { useRealtimeQuote } from '@/hooks/use-realtime-quote';
 import { TIMEFRAMES } from '@/types/chart';
 import type { Timeframe, CandleDisplayType } from '@/types/chart';
-import { BarChart3, FlaskConical, LineChart, AreaChart, Ruler, TrendingUp, CandlestickChart, ChevronDown } from 'lucide-react';
+import { BarChart3, FlaskConical, LineChart, AreaChart, Ruler, TrendingUp, CandlestickChart, ChevronDown, MoveUpRight, Minus } from 'lucide-react';
+import type { DrawingToolMode } from '@/types/chart';
 import { useDrawingStore } from '@/stores/drawing-store';
 import { AddIndicatorDialog } from './add-indicator-dialog';
 import { SymbolSearchDialog } from './symbol-search-dialog';
@@ -57,7 +58,7 @@ export function ChartToolbar() {
 
   const quote = useRealtimeQuote(symbol);
 
-  const { panelOpen, setPanelOpen } = useBacktestStore();
+  const { panelOpen, activePanel, setPanelOpen, setActivePanel } = useBacktestStore();
   const { toolMode, setToolMode, resetTool, bumpRefreshVersion } = useDrawingStore();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -75,8 +76,8 @@ export function ChartToolbar() {
   );
 
   const handleAddSubmit = useCallback(
-    async (indicatorType: string, displayName: string, parameters: Record<string, number>) => {
-      await addIndicator({ indicatorType, displayName, parameters: parameters as Record<string, unknown> });
+    async (indicatorType: string, displayName: string, parameters: Record<string, number>, colors?: Record<string, string> | null, lineWidths?: Record<string, number> | null) => {
+      await addIndicator({ indicatorType, displayName, parameters: parameters as Record<string, unknown>, colors: colors ?? null, lineWidths: lineWidths ?? null });
     },
     [addIndicator],
   );
@@ -223,33 +224,61 @@ export function ChartToolbar() {
           </TooltipContent>
         </Tooltip>
 
-        {/* Channel — icon only */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={isVersionMode}
-              onClick={() => {
-                if (toolMode === 'parallel_channel') {
-                  resetTool();
-                } else {
-                  setToolMode('parallel_channel');
-                }
-              }}
-              className={`h-7 w-7 p-0 ${
-                toolMode === 'parallel_channel'
-                  ? 'bg-[#2962ff] text-white hover:bg-[#1e53e5]'
-                  : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39]'
-              } disabled:opacity-40`}
-            >
-              <TrendingUp className="w-4 h-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
-            Parallel Channel
-          </TooltipContent>
-        </Tooltip>
+        {/* Drawing Tools — dropdown */}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={isVersionMode}
+                  className={`h-7 w-7 p-0 ${
+                    toolMode !== 'none'
+                      ? 'bg-[#2962ff] text-white hover:bg-[#1e53e5]'
+                      : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#2a2e39]'
+                  } disabled:opacity-40`}
+                >
+                  {toolMode === 'ray' ? <MoveUpRight className="w-4 h-4" /> :
+                   toolMode === 'horizontal_line' ? <Minus className="w-4 h-4" /> :
+                   <TrendingUp className="w-4 h-4" />}
+                </Button>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-[#1e222d] text-[#d1d4dc] border-[#2a2e39]">
+              Drawing Tools
+            </TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent
+            align="start"
+            className="bg-[#1e222d] border-[#2a2e39] min-w-[160px]"
+          >
+            {([
+              { mode: 'parallel_channel' as DrawingToolMode, label: 'Parallel Channel', icon: <TrendingUp className="w-4 h-4" /> },
+              { mode: 'ray' as DrawingToolMode, label: 'Ray', icon: <MoveUpRight className="w-4 h-4" /> },
+              { mode: 'horizontal_line' as DrawingToolMode, label: 'Horizontal Line', icon: <Minus className="w-4 h-4" /> },
+            ]).map((tool) => (
+              <DropdownMenuItem
+                key={tool.mode}
+                onClick={() => {
+                  if (toolMode === tool.mode) {
+                    resetTool();
+                  } else {
+                    setToolMode(tool.mode);
+                  }
+                }}
+                className={`text-xs gap-2 cursor-pointer ${
+                  toolMode === tool.mode
+                    ? 'text-[#d1d4dc] bg-[#2a2e39]'
+                    : 'text-[#787b86] hover:text-[#d1d4dc]'
+                }`}
+              >
+                {tool.icon}
+                {tool.label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Separator orientation="vertical" className="h-5 bg-[#2a2e39]" />
 
@@ -304,9 +333,16 @@ export function ChartToolbar() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setPanelOpen(!panelOpen)}
+              onClick={() => {
+                if (panelOpen && activePanel === 'strategy') {
+                  setPanelOpen(false);
+                } else {
+                  setActivePanel('strategy');
+                  setPanelOpen(true);
+                }
+              }}
               className={`h-7 w-7 p-0 ${
-                panelOpen
+                panelOpen && activePanel === 'strategy'
                   ? 'bg-[#2a2e39] text-[#d1d4dc]'
                   : 'text-[#787b86] hover:text-[#d1d4dc] hover:bg-[#1e222d]'
               }`}

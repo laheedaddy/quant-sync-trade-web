@@ -37,9 +37,11 @@ interface IndicatorPanelProps {
   syncManager?: ChartSyncManager;
   indicatorActions?: IndicatorActions;
   activeConfigNos?: number[];
+  indicatorColorMap?: Map<number, Record<string, string>>;
+  indicatorLineWidthMap?: Map<number, Record<string, number>>;
 }
 
-export function IndicatorPanel({ candles, indicators, syncManager, indicatorActions, activeConfigNos }: IndicatorPanelProps) {
+export function IndicatorPanel({ candles, indicators, syncManager, indicatorActions, activeConfigNos, indicatorColorMap, indicatorLineWidthMap }: IndicatorPanelProps) {
   const { timeframe } = useChartStore();
   const panelIndicators = indicators.filter((ind) => isPanelIndicator(ind.indicatorType));
   const candleTimestamps = useMemo(() => getCandleTimestamps(candles, timeframe), [candles, timeframe]);
@@ -56,6 +58,8 @@ export function IndicatorPanel({ candles, indicators, syncManager, indicatorActi
           syncManager={syncManager}
           indicatorActions={indicatorActions}
           isActive={activeConfigNos?.includes(indicator.indicatorConfigNo) ?? true}
+          customColors={indicatorColorMap?.get(indicator.indicatorConfigNo)}
+          customLineWidths={indicatorLineWidthMap?.get(indicator.indicatorConfigNo)}
         />
       ))}
     </div>
@@ -68,15 +72,17 @@ interface SingleIndicatorPanelProps {
   syncManager?: ChartSyncManager;
   indicatorActions?: IndicatorActions;
   isActive: boolean;
+  customColors?: Record<string, string>;
+  customLineWidths?: Record<string, number>;
 }
 
-function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indicatorActions, isActive }: SingleIndicatorPanelProps) {
+function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indicatorActions, isActive, customColors, customLineWidths }: SingleIndicatorPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<Map<string, ISeriesApi<SeriesType>>>(new Map());
   const { showReferenceLines, timeframe } = useChartStore();
 
-  const config = getIndicatorSeriesConfig(indicator.indicatorType as IndicatorType);
+  const config = getIndicatorSeriesConfig(indicator.indicatorType as IndicatorType, customColors, customLineWidths);
 
   // Create chart
   useEffect(() => {
@@ -180,34 +186,34 @@ function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indica
     <div className="relative border-t border-[#1e222d] flex-1 min-h-0">
       <div className="absolute top-1 left-2 z-10 flex items-center gap-2 pointer-events-none">
         {/* 이름: 호버 영역 (pointer-events-auto) */}
-        <div className="group/panel-label flex items-center gap-1 pointer-events-auto">
+        <div className="group flex items-center gap-1 pointer-events-auto">
           <span className="text-xs font-mono font-semibold text-[#787b86] cursor-default">
             {indicator.displayName}
           </span>
 
           {/* 액션 버튼 - opacity 기반 (레이아웃 변경 없음) */}
           {indicatorActions && (
-            <div className="flex items-center gap-0 opacity-0 group-hover/panel-label:opacity-100 transition-opacity duration-150">
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
               <button
                 onClick={() => indicatorActions.onEdit(indicator.indicatorConfigNo)}
-                className="p-0.5 text-[#787b86] hover:text-[#d1d4dc] transition-colors"
+                className="p-0.5 text-[#9598a1] hover:text-[#d1d4dc] transition-colors"
                 title="Settings"
               >
-                <Settings className="w-3 h-3" />
+                <Settings className="w-3.5 h-3.5" />
               </button>
               <button
                 onClick={() => indicatorActions.onToggle(indicator.indicatorConfigNo)}
-                className="p-0.5 text-[#787b86] hover:text-[#d1d4dc] transition-colors"
+                className="p-0.5 text-[#9598a1] hover:text-[#d1d4dc] transition-colors"
                 title={isActive ? 'Hide' : 'Show'}
               >
-                {isActive ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                {isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
               </button>
               <button
                 onClick={() => indicatorActions.onDelete(indicator.indicatorConfigNo)}
-                className="p-0.5 text-[#787b86] hover:text-[#ef5350] transition-colors"
+                className="p-0.5 text-[#9598a1] hover:text-[#ef5350] transition-colors"
                 title="Remove"
               >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
@@ -215,8 +221,12 @@ function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indica
 
         {lastData && (
           <span className="text-xs font-mono text-[#d1d4dc]">
-            {Object.entries(lastData.value)
-              .map(([k, v]) => `${k}: ${typeof v === 'number' ? formatPrice(v, 4) : v}`)
+            {config.series
+              .filter((s) => lastData.value[s.key] != null)
+              .map((s) => {
+                const v = lastData.value[s.key];
+                return `${s.key}: ${typeof v === 'number' ? formatPrice(v, 4) : v}`;
+              })
               .join(' | ')}
           </span>
         )}

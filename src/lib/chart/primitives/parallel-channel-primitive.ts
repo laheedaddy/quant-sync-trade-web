@@ -1,5 +1,4 @@
 import type {
-  ISeriesPrimitive,
   SeriesAttachedParameter,
   IPrimitivePaneView,
   IPrimitivePaneRenderer,
@@ -10,6 +9,7 @@ import type {
 } from 'lightweight-charts';
 import type { CanvasRenderingTarget2D } from 'fancy-canvas';
 import type { DrawingPoint, DrawingStyle } from '@/types/chart';
+import type { IDrawingPrimitive } from './drawing-primitive';
 
 const DEFAULT_STYLE: Required<DrawingStyle> = {
   lineColor: '#2962ff',
@@ -19,6 +19,8 @@ const DEFAULT_STYLE: Required<DrawingStyle> = {
   extendLeft: false,
   extendRight: true,
   priceScaleMode: 0,
+  dashed: false,
+  showPriceLabel: false,
 };
 
 interface PixelPoint {
@@ -151,11 +153,12 @@ class ParallelChannelPaneView implements IPrimitivePaneView {
   }
 }
 
-export class ParallelChannelPrimitive implements ISeriesPrimitive<Time> {
+export class ParallelChannelPrimitive implements IDrawingPrimitive {
   private _chart: IChartApi | null = null;
   private _series: ISeriesApi<SeriesType> | null = null;
   private _requestUpdate: (() => void) | null = null;
   private _paneView = new ParallelChannelPaneView();
+  private _retryCount = 0;
 
   private _points: DrawingPoint[] = [];
   private _style: Required<DrawingStyle> = { ...DEFAULT_STYLE };
@@ -169,6 +172,7 @@ export class ParallelChannelPrimitive implements ISeriesPrimitive<Time> {
     this._chart = param.chart as IChartApi;
     this._series = param.series;
     this._requestUpdate = param.requestUpdate;
+    this._retryCount = 0;
     this._requestUpdate();
   }
 
@@ -180,6 +184,7 @@ export class ParallelChannelPrimitive implements ISeriesPrimitive<Time> {
 
   updatePoints(points: DrawingPoint[]): void {
     this._points = points;
+    this._retryCount = 0;
     this._requestUpdate?.();
   }
 
@@ -205,8 +210,15 @@ export class ParallelChannelPrimitive implements ISeriesPrimitive<Time> {
 
     if (p0x === null || p0y === null || p1x === null || p1y === null) {
       this._paneView.update(null, null, null, null, this._style, 0);
+      // Retry on next frame — chart layout may not be finalized yet
+      if (this._retryCount < 3) {
+        this._retryCount++;
+        requestAnimationFrame(() => this._requestUpdate?.());
+      }
       return;
     }
+
+    this._retryCount = 0;
 
     const line1Start: PixelPoint = { x: p0x as number, y: p0y as number };
     const line1End: PixelPoint = { x: p1x as number, y: p1y as number };

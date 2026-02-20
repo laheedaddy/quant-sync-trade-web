@@ -4,6 +4,7 @@ import type { GetUserStrategyVersionDto } from '@/types/strategy';
 
 type ListTab = 'strategy' | 'channels';
 type DetailTab = 'backtest' | 'edit' | 'channel';
+type ActivePanel = 'strategy' | 'watchlist' | 'channels';
 
 interface BacktestState {
   selectedStrategyNo: number | null;
@@ -16,6 +17,7 @@ interface BacktestState {
   versions: GetUserStrategyVersionDto[];
   selectedVersionNo: number | null;
   // Side panel state
+  activePanel: ActivePanel;
   listTab: ListTab;
   detailStrategyNo: number | null;
   detailTab: DetailTab;
@@ -38,6 +40,7 @@ interface BacktestState {
   addVersion: (version: GetUserStrategyVersionDto) => void;
   removeVersion: (versionNo: number) => void;
   setSelectedVersionNo: (no: number | null) => void;
+  setActivePanel: (panel: ActivePanel) => void;
   setListTab: (tab: ListTab) => void;
   setDetailStrategyNo: (no: number | null) => void;
   setDetailTab: (tab: DetailTab) => void;
@@ -59,6 +62,7 @@ export const useBacktestStore = create<BacktestState>((set) => ({
   panelOpen: true,
   versions: [],
   selectedVersionNo: null,
+  activePanel: 'strategy',
   listTab: 'strategy',
   detailStrategyNo: null,
   detailTab: 'backtest',
@@ -84,6 +88,7 @@ export const useBacktestStore = create<BacktestState>((set) => ({
     })),
   setSelectedVersionNo: (selectedVersionNo) =>
     set({ selectedVersionNo: selectedVersionNo !== null ? Number(selectedVersionNo) : null }),
+  setActivePanel: (activePanel) => set({ activePanel }),
   setListTab: (listTab) => set({ listTab }),
   setDetailStrategyNo: (detailStrategyNo) => set({ detailStrategyNo }),
   setDetailTab: (detailTab) => set({ detailTab }),
@@ -102,6 +107,7 @@ export const useBacktestStore = create<BacktestState>((set) => ({
       isLoadingHistory: false,
       versions: [],
       selectedVersionNo: null,
+      activePanel: 'strategy',
       listTab: 'strategy',
       detailStrategyNo: null,
       detailTab: 'backtest',

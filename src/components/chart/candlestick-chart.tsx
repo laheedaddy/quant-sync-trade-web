@@ -18,13 +18,27 @@ import {
   num,
 } from '@/lib/chart/utils';
 import { getIndicatorSeriesConfig, isOverlayIndicator } from '@/lib/chart/indicators';
+import type { IDrawingPrimitive } from '@/lib/chart/primitives/drawing-primitive';
 import { ParallelChannelPrimitive } from '@/lib/chart/primitives/parallel-channel-primitive';
+import { RayPrimitive } from '@/lib/chart/primitives/ray-primitive';
+import { HorizontalLinePrimitive } from '@/lib/chart/primitives/horizontal-line-primitive';
 import { DrawingInteractionManager } from '@/lib/chart/drawing-interaction-manager';
 import { DrawingEditManager } from '@/lib/chart/drawing-edit-manager';
 import type { ChartSyncManager } from '@/lib/chart/sync';
 import { ChartLegend } from './chart-legend';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { RealtimeQuote } from '@/types/quote';
+
+function createPrimitiveForDrawing(drawing: UserChartDrawing): IDrawingPrimitive {
+  switch (drawing.drawingType) {
+    case 'RAY':
+      return new RayPrimitive(drawing.points, drawing.style);
+    case 'HORIZONTAL_LINE':
+      return new HorizontalLinePrimitive(drawing.points, drawing.style);
+    default:
+      return new ParallelChannelPrimitive(drawing.points, drawing.style);
+  }
+}
 
 interface IndicatorActions {
   onEdit: (configNo: number) => void;
@@ -33,6 +47,8 @@ interface IndicatorActions {
 }
 
 interface DrawingActions {
+  onEdit: (drawingNo: number) => void;
+  onToggle: (drawingNo: number) => void;
   onDelete: (drawingNo: number) => void;
 }
 
@@ -53,8 +69,11 @@ interface CandlestickChartProps {
   indicatorActions?: IndicatorActions;
   activeConfigNos?: number[];
   drawingActions?: DrawingActions;
+  activeDrawingNos?: number[];
   realtimeQuote?: RealtimeQuote | null;
   onRefetch?: () => void;
+  indicatorColorMap?: Map<number, Record<string, string>>;
+  indicatorLineWidthMap?: Map<number, Record<string, number>>;
 }
 
 export function CandlestickChart({
@@ -74,8 +93,11 @@ export function CandlestickChart({
   indicatorActions,
   activeConfigNos,
   drawingActions,
+  activeDrawingNos,
   realtimeQuote,
   onRefetch,
+  indicatorColorMap,
+  indicatorLineWidthMap,
 }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
@@ -83,7 +105,7 @@ export function CandlestickChart({
   const prevCandleCountRef = useRef(0);
   const prevDisplayTypeRef = useRef<string | null>(null);
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<any> | null>(null);
-  const drawingPrimitivesRef = useRef<Map<number, ParallelChannelPrimitive>>(new Map());
+  const drawingPrimitivesRef = useRef<Map<number, IDrawingPrimitive>>(new Map());
   const interactionManagerRef = useRef<DrawingInteractionManager | null>(null);
   const editManagerRef = useRef<DrawingEditManager | null>(null);
   const drawingsDataRef = useRef(drawings);
@@ -597,7 +619,9 @@ export function CandlestickChart({
 
     // Add/update overlay indicators
     for (const ind of overlayIndicators) {
-      const config = getIndicatorSeriesConfig(ind.indicatorType as IndicatorType);
+      const customColors = indicatorColorMap?.get(ind.indicatorConfigNo);
+      const customLineWidths = indicatorLineWidthMap?.get(ind.indicatorConfigNo);
+      const config = getIndicatorSeriesConfig(ind.indicatorType as IndicatorType, customColors, customLineWidths);
       const isVisible = activeConfigNos ? activeConfigNos.includes(ind.indicatorConfigNo) : true;
 
       for (const seriesConfig of config.series) {
@@ -615,7 +639,7 @@ export function CandlestickChart({
           });
           seriesRef.current.set(seriesId, series);
         } else {
-          series.applyOptions({ visible: isVisible });
+          series.applyOptions({ visible: isVisible, color: seriesConfig.color, lineWidth: (seriesConfig.lineWidth ?? 1) as LineWidth });
         }
 
         const lineData = transformIndicatorLine(ind.data, seriesConfig.key, timeframe);
@@ -641,7 +665,7 @@ export function CandlestickChart({
         series.applyOptions({ visible: isVisible });
       }
     }
-  }, [indicators, activeConfigNos]);
+  }, [indicators, activeConfigNos, indicatorColorMap, indicatorLineWidthMap]);
 
   // Update backtest markers
   useEffect(() => {
@@ -704,6 +728,9 @@ export function CandlestickChart({
     if (!candleSeries || !drawings) return;
 
     const currentIds = new Set(drawings.map((d) => d.userChartDrawingNo));
+    const hiddenSet = new Set(activeDrawingNos != null
+      ? drawings.map((d) => d.userChartDrawingNo).filter((no) => !activeDrawingNos.includes(no))
+      : []);
     const primitiveMap = drawingPrimitivesRef.current;
 
     // Remove primitives for deleted drawings
@@ -716,19 +743,29 @@ export function CandlestickChart({
 
     // Add or update primitives for current drawings
     for (const drawing of drawings) {
-      const existing = primitiveMap.get(drawing.userChartDrawingNo);
-      if (existing) {
-        // Update existing primitive (e.g. version switch reuses same negative IDs)
+      const drawingNo = drawing.userChartDrawingNo;
+      const isHidden = hiddenSet.has(drawingNo);
+      const existing = primitiveMap.get(drawingNo);
+
+      if (isHidden) {
+        // Detach hidden drawing
+        if (existing) {
+          candleSeries.detachPrimitive(existing);
+          primitiveMap.delete(drawingNo);
+        }
+      } else if (existing) {
+        // Update existing primitive
         existing.updatePoints(drawing.points);
         existing.updateStyle(drawing.style);
       } else {
-        const primitive = new ParallelChannelPrimitive(drawing.points, drawing.style);
+        // Attach new primitive
+        const primitive = createPrimitiveForDrawing(drawing);
         candleSeries.attachPrimitive(primitive);
-        primitiveMap.set(drawing.userChartDrawingNo, primitive);
+        primitiveMap.set(drawingNo, primitive);
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drawings, candles.length]);
+  }, [drawings, candles.length, activeDrawingNos]);
 
   // Manage drawing interaction manager based on toolMode
   useEffect(() => {
@@ -746,7 +783,7 @@ export function CandlestickChart({
       editManagerRef.current = null;
     }
 
-    if (toolMode === 'parallel_channel' && onDrawingComplete && onDrawingCancel) {
+    if (toolMode && toolMode !== 'none' && onDrawingComplete && onDrawingCancel) {
       // Creation mode
       const manager = new DrawingInteractionManager({
         chart,
@@ -754,6 +791,7 @@ export function CandlestickChart({
         onComplete: onDrawingComplete,
         onCancel: onDrawingCancel,
         priceScaleMode,
+        drawingToolMode: toolMode,
       });
       interactionManagerRef.current = manager;
       manager.start();
@@ -801,7 +839,9 @@ export function CandlestickChart({
           activeConfigNos={activeConfigNos}
           drawings={drawings}
           drawingActions={drawingActions}
+          activeDrawingNos={activeDrawingNos}
           crosshairTimeSec={hoveredCandle ? Math.floor(new Date(hoveredCandle.tradedAt).getTime() / 1000) : null}
+          indicatorColorMap={indicatorColorMap}
         />
       )}
 

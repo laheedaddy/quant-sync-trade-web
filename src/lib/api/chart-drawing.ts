@@ -15,7 +15,9 @@ export async function fetchChartDrawings(
   searchParams.set('userStrategyNo', userStrategyNo.toString());
 
   const path = `/v1/chart/${encodeURIComponent(symbol)}/drawing?${searchParams.toString()}`;
-  return apiClient<UserChartDrawing[]>(path);
+  const result = await apiClient<UserChartDrawing[]>(path);
+  // TypeORM bigint returns string — normalize to number
+  return result.map((d) => ({ ...d, userChartDrawingNo: Number(d.userChartDrawingNo) }));
 }
 
 export async function addChartDrawing(
@@ -28,23 +30,25 @@ export async function addChartDrawing(
   searchParams.set('timeframe', timeframe);
   searchParams.set('userStrategyNo', userStrategyNo.toString());
 
-  return apiClient<UserChartDrawing>(
+  const created = await apiClient<UserChartDrawing>(
     `/v1/chart/${encodeURIComponent(symbol)}/drawing?${searchParams.toString()}`,
     {
       method: 'POST',
       body: JSON.stringify(body),
     },
   );
+  return { ...created, userChartDrawingNo: Number(created.userChartDrawingNo) };
 }
 
 export async function updateChartDrawing(
   drawingNo: number,
   body: UpdateChartDrawingRequest,
 ): Promise<UserChartDrawing> {
-  return apiClient<UserChartDrawing>(`/v1/chart/drawing/${drawingNo}`, {
+  const updated = await apiClient<UserChartDrawing>(`/v1/chart/drawing/${drawingNo}`, {
     method: 'PUT',
     body: JSON.stringify(body),
   });
+  return { ...updated, userChartDrawingNo: Number(updated.userChartDrawingNo) };
 }
 
 export async function deleteChartDrawing(drawingNo: number): Promise<void> {

@@ -3,7 +3,7 @@
 import type { ChartCandle, ChartIndicator, UserChartDrawing } from '@/types/chart';
 import { formatPrice } from '@/lib/utils/format';
 import { INDICATOR_COLORS } from '@/lib/chart/theme';
-import { Eye, EyeOff, X } from 'lucide-react';
+import { Eye, EyeOff, Settings, X } from 'lucide-react';
 
 interface IndicatorActions {
   onEdit: (configNo: number) => void;
@@ -12,6 +12,8 @@ interface IndicatorActions {
 }
 
 interface DrawingActions {
+  onEdit: (drawingNo: number) => void;
+  onToggle: (drawingNo: number) => void;
   onDelete: (drawingNo: number) => void;
 }
 
@@ -22,20 +24,24 @@ interface ChartLegendProps {
   activeConfigNos?: number[];
   drawings?: UserChartDrawing[];
   drawingActions?: DrawingActions;
+  activeDrawingNos?: number[];
   /** 크로스헤어 위치의 Unix timestamp (초 단위) — 드로잉 채널 값 계산용 */
   crosshairTimeSec?: number | null;
+  indicatorColorMap?: Map<number, Record<string, string>>;
 }
 
-export function ChartLegend({ candle, indicators, indicatorActions, activeConfigNos, drawings, drawingActions, crosshairTimeSec }: ChartLegendProps) {
+export function ChartLegend({ candle, indicators, indicatorActions, activeConfigNos, drawings, drawingActions, activeDrawingNos, crosshairTimeSec, indicatorColorMap }: ChartLegendProps) {
   if (!candle) return null;
 
   const isUp = candle.closePrice >= candle.openPrice;
   const changeColor = isUp ? '#26a69a' : '#ef5350';
 
-  const overlayIndicators = indicators.filter((ind) => ['MA', 'EMA', 'BOLLINGER'].includes(ind.indicatorType));
+  const overlayIndicators = indicators.filter((ind) =>
+    ['MA', 'EMA', 'BOLLINGER', 'SUPERTREND', 'ICHIMOKU', 'KELTNER', 'DONCHIAN', 'VWAP', 'PIVOT', 'PSAR'].includes(ind.indicatorType),
+  );
 
   return (
-    <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-auto">
+    <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 pointer-events-none">
       {/* OHLCV */}
       <div className="flex items-center gap-3 text-xs font-mono">
         <span className="text-[#787b86]">O</span>
@@ -55,6 +61,7 @@ export function ChartLegend({ candle, indicators, indicatorActions, activeConfig
           indicator={ind}
           actions={indicatorActions}
           isActive={activeConfigNos?.includes(ind.indicatorConfigNo) ?? true}
+          customColors={indicatorColorMap?.get(ind.indicatorConfigNo)}
         />
       ))}
 
@@ -65,6 +72,7 @@ export function ChartLegend({ candle, indicators, indicatorActions, activeConfig
           drawing={d}
           index={idx}
           actions={drawingActions}
+          isActive={activeDrawingNos?.includes(d.userChartDrawingNo) ?? true}
           crosshairTimeSec={crosshairTimeSec}
         />
       ))}
@@ -76,16 +84,19 @@ interface IndicatorLegendLineProps {
   indicator: ChartIndicator;
   actions?: IndicatorActions;
   isActive: boolean;
+  customColors?: Record<string, string>;
 }
 
-function IndicatorLegendLine({ indicator, actions, isActive }: IndicatorLegendLineProps) {
+function IndicatorLegendLine({ indicator, actions, isActive, customColors }: IndicatorLegendLineProps) {
   const lastData = indicator.data[indicator.data.length - 1];
   if (!lastData) return null;
 
-  const color = getIndicatorColor(indicator.indicatorType);
+  const color = customColors
+    ? Object.values(customColors)[0] ?? getIndicatorColor(indicator.indicatorType)
+    : getIndicatorColor(indicator.indicatorType);
 
   return (
-    <div className={`group/legend flex items-center gap-1.5 text-xs font-mono${isActive ? '' : ' opacity-40'}`}>
+    <div className={`group flex items-center gap-1.5 text-xs font-mono pointer-events-auto${isActive ? '' : ' opacity-40'}`}>
       {/* 이름 클릭 → 설정 다이얼로그 */}
       <span
         style={{ color }}
@@ -95,22 +106,29 @@ function IndicatorLegendLine({ indicator, actions, isActive }: IndicatorLegendLi
         {indicator.displayName}
       </span>
 
-      {/* 호버 시 액션 버튼 (토글 / 삭제) */}
+      {/* 호버 시 액션 버튼 (설정 / 토글 / 삭제) */}
       {actions && (
-        <div className="flex items-center gap-0 opacity-0 group-hover/legend:opacity-100 transition-opacity duration-150">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <button
+            onClick={() => actions.onEdit(indicator.indicatorConfigNo)}
+            className="p-0.5 text-[#9598a1] hover:text-[#d1d4dc] transition-colors"
+            title="Settings"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
           <button
             onClick={() => actions.onToggle(indicator.indicatorConfigNo)}
-            className="p-0.5 text-[#787b86] hover:text-[#d1d4dc] transition-colors"
+            className="p-0.5 text-[#9598a1] hover:text-[#d1d4dc] transition-colors"
             title={isActive ? 'Hide' : 'Show'}
           >
-            {isActive ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+            {isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
           </button>
           <button
             onClick={() => actions.onDelete(indicator.indicatorConfigNo)}
-            className="p-0.5 text-[#787b86] hover:text-[#ef5350] transition-colors"
+            className="p-0.5 text-[#9598a1] hover:text-[#ef5350] transition-colors"
             title="Remove"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
@@ -129,22 +147,37 @@ interface DrawingLegendLineProps {
   drawing: UserChartDrawing;
   index: number;
   actions?: DrawingActions;
+  isActive: boolean;
   crosshairTimeSec?: number | null;
 }
 
-function DrawingLegendLine({ drawing, index, actions, crosshairTimeSec }: DrawingLegendLineProps) {
+function DrawingLegendLine({ drawing, index, actions, isActive, crosshairTimeSec }: DrawingLegendLineProps) {
   const isSnapshot = drawing.userChartDrawingNo < 0;
   const color = isSnapshot ? '#ff9800' : (drawing.style.lineColor ?? '#2962ff');
-  const label = isSnapshot
-    ? `Channel #${index + 1}`
-    : `Channel #${drawing.userChartDrawingNo}`;
 
-  const channelValues = crosshairTimeSec != null
+  let label: string;
+  switch (drawing.drawingType) {
+    case 'RAY':
+      label = isSnapshot ? `Ray #${index + 1}` : `Ray #${drawing.userChartDrawingNo}`;
+      break;
+    case 'HORIZONTAL_LINE':
+      label = 'H-Line';
+      break;
+    default:
+      label = isSnapshot ? `Channel #${index + 1}` : `Channel #${drawing.userChartDrawingNo}`;
+      break;
+  }
+
+  const channelValues = drawing.drawingType === 'PARALLEL_CHANNEL' && crosshairTimeSec != null
     ? computeChannelAtTime(drawing.points, drawing.style.priceScaleMode ?? 0, crosshairTimeSec)
     : null;
 
+  const hLinePrice = drawing.drawingType === 'HORIZONTAL_LINE' && drawing.points.length > 0
+    ? drawing.points[0].price
+    : null;
+
   return (
-    <div className="group/drawing flex items-center gap-1.5 text-xs font-mono">
+    <div className={`group flex items-center gap-1.5 text-xs font-mono pointer-events-auto${isActive ? '' : ' opacity-40'}`}>
       <span
         className="w-3 h-0.5 rounded-full inline-block flex-shrink-0"
         style={{ backgroundColor: color }}
@@ -154,18 +187,32 @@ function DrawingLegendLine({ drawing, index, actions, crosshairTimeSec }: Drawin
       </span>
 
       {!isSnapshot && actions && (
-        <div className="flex items-center gap-0 opacity-0 group-hover/drawing:opacity-100 transition-opacity duration-150">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <button
+            onClick={() => actions.onEdit(drawing.userChartDrawingNo)}
+            className="p-0.5 text-[#9598a1] hover:text-[#d1d4dc] transition-colors"
+            title="Settings"
+          >
+            <Settings className="w-3.5 h-3.5" />
+          </button>
+          <button
+            onClick={() => actions.onToggle(drawing.userChartDrawingNo)}
+            className="p-0.5 text-[#9598a1] hover:text-[#d1d4dc] transition-colors"
+            title={isActive ? 'Hide' : 'Show'}
+          >
+            {isActive ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+          </button>
           <button
             onClick={() => actions.onDelete(drawing.userChartDrawingNo)}
-            className="p-0.5 text-[#787b86] hover:text-[#ef5350] transition-colors"
+            className="p-0.5 text-[#9598a1] hover:text-[#ef5350] transition-colors"
             title="Remove"
           >
-            <X className="w-3 h-3" />
+            <X className="w-3.5 h-3.5" />
           </button>
         </div>
       )}
 
-      {channelValues && (
+      {isActive && channelValues && (
         <>
           <span className="text-[#787b86]">U</span>
           <span style={{ color }} className="opacity-80">{formatPrice(channelValues.upper)}</span>
@@ -174,6 +221,10 @@ function DrawingLegendLine({ drawing, index, actions, crosshairTimeSec }: Drawin
           <span className="text-[#787b86]">L</span>
           <span style={{ color }} className="opacity-80">{formatPrice(channelValues.lower)}</span>
         </>
+      )}
+
+      {isActive && hLinePrice !== null && (
+        <span style={{ color }} className="opacity-80">{formatPrice(hLinePrice)}</span>
       )}
     </div>
   );
@@ -236,6 +287,19 @@ function getIndicatorColor(type: string): string {
     case 'RSI': return INDICATOR_COLORS.RSI;
     case 'MACD': return INDICATOR_COLORS.MACD_LINE;
     case 'STOCHASTIC': return INDICATOR_COLORS.STOCHASTIC_K;
+    case 'ADX': return INDICATOR_COLORS.ADX;
+    case 'SUPERTREND': return INDICATOR_COLORS.SUPERTREND;
+    case 'ICHIMOKU': return INDICATOR_COLORS.ICHIMOKU_TENKAN;
+    case 'CCI': return INDICATOR_COLORS.CCI;
+    case 'ROC': return INDICATOR_COLORS.ROC;
+    case 'ATR': return INDICATOR_COLORS.ATR;
+    case 'KELTNER': return INDICATOR_COLORS.KELTNER_MIDDLE;
+    case 'DONCHIAN': return INDICATOR_COLORS.DONCHIAN_MIDDLE;
+    case 'OBV': return INDICATOR_COLORS.OBV;
+    case 'VWAP': return INDICATOR_COLORS.VWAP;
+    case 'PIVOT': return INDICATOR_COLORS.PIVOT_PP;
+    case 'PSAR': return INDICATOR_COLORS.PSAR;
+    case 'TREND_SCORE': return INDICATOR_COLORS.TREND_SCORE;
     default: return '#d1d4dc';
   }
 }

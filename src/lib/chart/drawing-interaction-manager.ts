@@ -5,8 +5,11 @@ import type {
   MouseEventParams,
   Time,
 } from 'lightweight-charts';
-import type { DrawingPoint, CreateChartDrawingRequest, PriceScaleMode } from '@/types/chart';
+import type { DrawingPoint, CreateChartDrawingRequest, PriceScaleMode, DrawingToolMode } from '@/types/chart';
+import type { IDrawingPrimitive } from './primitives/drawing-primitive';
 import { ParallelChannelPrimitive } from './primitives/parallel-channel-primitive';
+import { RayPrimitive } from './primitives/ray-primitive';
+import { HorizontalLinePrimitive } from './primitives/horizontal-line-primitive';
 
 interface DrawingInteractionManagerOptions {
   chart: IChartApi;
@@ -14,7 +17,14 @@ interface DrawingInteractionManagerOptions {
   onComplete: (request: CreateChartDrawingRequest) => void;
   onCancel: () => void;
   priceScaleMode?: number;
+  drawingToolMode?: DrawingToolMode;
 }
+
+const TOOL_REQUIRED_CLICKS: Record<string, number> = {
+  parallel_channel: 3,
+  ray: 2,
+  horizontal_line: 1,
+};
 
 export class DrawingInteractionManager {
   private _chart: IChartApi;
@@ -22,9 +32,10 @@ export class DrawingInteractionManager {
   private _onComplete: (request: CreateChartDrawingRequest) => void;
   private _onCancel: () => void;
   private _priceScaleMode: PriceScaleMode;
+  private _drawingToolMode: DrawingToolMode;
 
   private _points: DrawingPoint[] = [];
-  private _previewPrimitive: ParallelChannelPrimitive | null = null;
+  private _previewPrimitive: IDrawingPrimitive | null = null;
   private _isActive = false;
   private _chartContainer: HTMLElement | null = null;
   private _prevCursor: string = '';
@@ -39,6 +50,11 @@ export class DrawingInteractionManager {
     this._onComplete = options.onComplete;
     this._onCancel = options.onCancel;
     this._priceScaleMode = (options.priceScaleMode ?? 0) as PriceScaleMode;
+    this._drawingToolMode = options.drawingToolMode ?? 'parallel_channel';
+  }
+
+  get requiredClicks(): number {
+    return TOOL_REQUIRED_CLICKS[this._drawingToolMode] ?? 3;
   }
 
   start(): void {
@@ -53,13 +69,8 @@ export class DrawingInteractionManager {
       this._chartContainer.style.cursor = 'crosshair';
     }
 
-    // Create preview primitive
-    this._previewPrimitive = new ParallelChannelPrimitive([], {
-      lineColor: '#2962ff',
-      fillColor: '#2962ff',
-      fillOpacity: 0.08,
-      lineWidth: 1,
-    });
+    // Create preview primitive based on tool mode
+    this._previewPrimitive = this._createPreviewPrimitive();
     this._series.attachPrimitive(this._previewPrimitive);
 
     // Subscribe to chart events
@@ -102,6 +113,27 @@ export class DrawingInteractionManager {
     if (this._keyHandler) {
       document.removeEventListener('keydown', this._keyHandler);
       this._keyHandler = null;
+    }
+  }
+
+  private _createPreviewPrimitive(): IDrawingPrimitive {
+    switch (this._drawingToolMode) {
+      case 'ray':
+        return new RayPrimitive([], { lineColor: '#2962ff', lineWidth: 1 });
+      case 'horizontal_line':
+        return new HorizontalLinePrimitive([], {
+          lineColor: '#787b86',
+          lineWidth: 1,
+          dashed: true,
+          showPriceLabel: true,
+        });
+      default:
+        return new ParallelChannelPrimitive([], {
+          lineColor: '#2962ff',
+          fillColor: '#2962ff',
+          fillOpacity: 0.08,
+          lineWidth: 1,
+        });
     }
   }
 
@@ -159,24 +191,46 @@ export class DrawingInteractionManager {
 
     this._points.push(point);
 
-    if (this._points.length === 3) {
-      // All 3 points collected → complete
-      const request: CreateChartDrawingRequest = {
-        drawingType: 'PARALLEL_CHANNEL',
-        points: [...this._points],
-        style: {
-          lineColor: '#2962ff',
-          lineWidth: 2,
-          fillColor: '#2962ff',
-          fillOpacity: 0.1,
-          extendLeft: false,
-          extendRight: true,
-          priceScaleMode: this._priceScaleMode,
-        },
-      };
-
+    if (this._points.length >= this.requiredClicks) {
+      const request = this._buildRequest();
       this.stop();
       this._onComplete(request);
+    }
+  }
+
+  private _buildRequest(): CreateChartDrawingRequest {
+    switch (this._drawingToolMode) {
+      case 'ray':
+        return {
+          drawingType: 'RAY',
+          points: [...this._points],
+          style: { lineColor: '#2962ff', lineWidth: 2 },
+        };
+      case 'horizontal_line':
+        return {
+          drawingType: 'HORIZONTAL_LINE',
+          points: [...this._points],
+          style: {
+            lineColor: '#787b86',
+            lineWidth: 1,
+            dashed: true,
+            showPriceLabel: true,
+          },
+        };
+      default:
+        return {
+          drawingType: 'PARALLEL_CHANNEL',
+          points: [...this._points],
+          style: {
+            lineColor: '#2962ff',
+            lineWidth: 2,
+            fillColor: '#2962ff',
+            fillOpacity: 0.1,
+            extendLeft: false,
+            extendRight: true,
+            priceScaleMode: this._priceScaleMode,
+          },
+        };
     }
   }
 
@@ -185,23 +239,38 @@ export class DrawingInteractionManager {
     const cursorPoint = this._getPointFromParams(params);
     if (!cursorPoint) return;
 
-    if (this._points.length === 0) {
-      // No points yet — no preview
-      this._previewPrimitive.updatePoints([]);
-    } else if (this._points.length === 1) {
-      // 1 point: show line from p0 to cursor (channel with 0 offset)
-      this._previewPrimitive.updatePoints([
-        this._points[0],
-        cursorPoint,
-        this._points[0], // same as p0 → offset 0 → single line
-      ]);
-    } else if (this._points.length === 2) {
-      // 2 points: show full channel preview with cursor as p2
-      this._previewPrimitive.updatePoints([
-        this._points[0],
-        this._points[1],
-        cursorPoint,
-      ]);
+    switch (this._drawingToolMode) {
+      case 'horizontal_line':
+        // Always show horizontal line at cursor price
+        this._previewPrimitive.updatePoints([cursorPoint]);
+        break;
+
+      case 'ray':
+        if (this._points.length === 0) {
+          this._previewPrimitive.updatePoints([]);
+        } else if (this._points.length === 1) {
+          this._previewPrimitive.updatePoints([this._points[0], cursorPoint]);
+        }
+        break;
+
+      default:
+        // parallel_channel
+        if (this._points.length === 0) {
+          this._previewPrimitive.updatePoints([]);
+        } else if (this._points.length === 1) {
+          this._previewPrimitive.updatePoints([
+            this._points[0],
+            cursorPoint,
+            this._points[0],
+          ]);
+        } else if (this._points.length === 2) {
+          this._previewPrimitive.updatePoints([
+            this._points[0],
+            this._points[1],
+            cursorPoint,
+          ]);
+        }
+        break;
     }
   }
 

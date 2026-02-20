@@ -61,6 +61,8 @@ export function useChartIndicators() {
           displayName: ind.displayName,
           parameters: ind.parameters as Record<string, unknown>,
           paramHash: ind.paramHash,
+          colors: (ind as any).colors ?? null,
+          lineWidths: (ind as any).lineWidths ?? null,
           isActive: true, // all snapshot indicators are considered active
           isDelete: false,
           createdAt: '',
@@ -85,6 +87,8 @@ export function useChartIndicators() {
           displayName: ind.displayName,
           parameters: ind.parameters as Record<string, unknown>,
           paramHash: ind.paramHash,
+          colors: ind.colors ?? null,
+          lineWidths: ind.lineWidths ?? null,
           isActive: ind.isActive,
           isDelete: false,
           createdAt: ind.createdAt,
@@ -154,6 +158,8 @@ export function useChartIndicators() {
             indicatorType: body.indicatorType as any,
             displayName: body.displayName,
             parameters: body.parameters as Record<string, number>,
+            colors: body.colors ?? null,
+            lineWidths: body.lineWidths ?? null,
           });
           const mapped: UserChartIndicatorConfig = {
             userChartIndicatorConfigNo: Number(created.userIndicatorConfigNo),
@@ -164,6 +170,8 @@ export function useChartIndicators() {
             displayName: created.displayName,
             parameters: created.parameters as Record<string, unknown>,
             paramHash: created.paramHash,
+            colors: created.colors ?? null,
+            lineWidths: created.lineWidths ?? null,
             isActive: created.isActive ?? true,
             isDelete: false,
             createdAt: created.createdAt,
@@ -201,6 +209,8 @@ export function useChartIndicators() {
             displayName: updated.displayName,
             parameters: updated.parameters as Record<string, unknown>,
             paramHash: updated.paramHash,
+            colors: updated.colors ?? null,
+            lineWidths: updated.lineWidths ?? null,
           });
           bumpStrategyIndicatorVersion();
           showSuccess('인디케이터가 수정되었습니다.');

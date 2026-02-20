@@ -112,10 +112,7 @@ export function ChannelsTab() {
   // ── List View ──
   return (
     <div className="p-2 space-y-2">
-      <div className="flex items-center justify-between px-1">
-        <h3 className="text-xs font-medium text-[#787b86] uppercase tracking-wider">
-          Signal Channels
-        </h3>
+      <div className="flex items-center justify-end px-1">
         <Button
           size="sm"
           className="h-6 text-[10px] px-2 bg-[#2962ff] hover:bg-[#1e53e5] text-white"

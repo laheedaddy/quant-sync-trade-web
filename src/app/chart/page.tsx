@@ -2,7 +2,7 @@
 
 import { Header } from '@/components/layout/header';
 import { ChartContainer } from '@/components/chart/chart-container';
-import { StrategyPanel } from '@/components/backtest/strategy-panel';
+import { RightSidebar } from '@/components/layout/right-sidebar';
 
 export default function ChartPage() {
   return (
@@ -12,7 +12,7 @@ export default function ChartPage() {
         <div className="flex-1 min-w-0 h-full">
           <ChartContainer />
         </div>
-        <StrategyPanel />
+        <RightSidebar />
       </main>
     </div>
   );

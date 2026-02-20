@@ -84,7 +84,7 @@ export class DrawingHandlesPrimitive implements ISeriesPrimitive<Time> {
   }
 
   updateAllViews(): void {
-    if (!this._chart || !this._series || this._points.length < 3) {
+    if (!this._chart || !this._series || this._points.length < 1) {
       this._paneView.update([]);
       return;
     }
@@ -93,11 +93,16 @@ export class DrawingHandlesPrimitive implements ISeriesPrimitive<Time> {
     const series = this._series;
     const handles: PixelPoint[] = [];
 
-    // Handle 0: p0 (line 1 start)
+    // Handle 0: p0
     const p0x = timeScale.timeToCoordinate(this._points[0].time as unknown as Time);
     const p0y = series.priceToCoordinate(this._points[0].price);
     if (p0x !== null && p0y !== null) {
       handles.push({ x: p0x as number, y: p0y as number });
+    }
+
+    if (this._points.length < 2) {
+      this._paneView.update(handles);
+      return;
     }
 
     // Handle 1: p1 (line 1 end)
@@ -105,6 +110,11 @@ export class DrawingHandlesPrimitive implements ISeriesPrimitive<Time> {
     const p1y = series.priceToCoordinate(this._points[1].price);
     if (p1x !== null && p1y !== null) {
       handles.push({ x: p1x as number, y: p1y as number });
+    }
+
+    if (this._points.length < 3) {
+      this._paneView.update(handles);
+      return;
     }
 
     // Handle 2: line 2 start position (pixel-space offset for straight line rendering)

@@ -15,9 +15,10 @@ import { ChartToolbar } from './chart-toolbar';
 import { CandlestickChart } from './candlestick-chart';
 import { IndicatorPanel } from './indicator-panel';
 import { AddIndicatorDialog } from './add-indicator-dialog';
+import { EditDrawingDialog } from './edit-drawing-dialog';
 import { isPanelIndicator } from '@/lib/chart/indicators';
 import { Toaster } from 'sonner';
-import type { UserChartIndicatorConfig } from '@/types/chart';
+import type { UserChartIndicatorConfig, UserChartDrawing } from '@/types/chart';
 
 export function ChartContainer() {
   const { currentTrades } = useBacktestStore();
@@ -37,7 +38,7 @@ export function ChartContainer() {
 
   // Load drawings from server
   const { drawings: liveDrawings, saveDrawing, updateDrawingById, removeDrawingById } = useChartDrawings();
-  const { toolMode, resetTool, setDrawings: setStoreDrawings } = useDrawingStore();
+  const { toolMode, resetTool, setDrawings: setStoreDrawings, hiddenDrawingNos, toggleDrawingHidden } = useDrawingStore();
 
   // Version mode: override drawings with snapshot data from version store
   // Read directly from backtest-store versions (more reliable than chart API pipeline)
@@ -81,9 +82,13 @@ export function ChartContainer() {
 
   const drawings = liveDrawings;
 
-  // Edit dialog state
+  // Indicator edit dialog state
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<UserChartIndicatorConfig | null>(null);
+
+  // Drawing edit dialog state
+  const [drawingEditOpen, setDrawingEditOpen] = useState(false);
+  const [editingDrawing, setEditingDrawing] = useState<UserChartDrawing | null>(null);
 
   const handleDrawingComplete = useCallback(
     async (request: Parameters<typeof saveDrawing>[0]) => {
@@ -143,20 +148,66 @@ export function ChartContainer() {
   const drawingActions = useMemo(() => {
     if (isVersionMode) return undefined;
     return {
+      onEdit: (drawingNo: number) => {
+        const d = drawings.find((dr) => dr.userChartDrawingNo === drawingNo);
+        if (d) {
+          setEditingDrawing(d);
+          setDrawingEditOpen(true);
+        }
+      },
+      onToggle: (drawingNo: number) => {
+        toggleDrawingHidden(drawingNo);
+      },
       onDelete: (drawingNo: number) => {
         removeDrawingById(drawingNo);
       },
     };
-  }, [isVersionMode, removeDrawingById]);
+  }, [isVersionMode, drawings, toggleDrawingHidden, removeDrawingById]);
+
+  // Active (visible) drawing numbers
+  const activeDrawingNos = useMemo(() => {
+    return drawings
+      .map((d) => d.userChartDrawingNo)
+      .filter((no) => !hiddenDrawingNos.includes(no));
+  }, [drawings, hiddenDrawingNos]);
 
   const handleEditUpdate = useCallback(
-    async (_configNo: number, displayName: string, parameters: Record<string, number>) => {
-      await updateIndicator(_configNo, { displayName, parameters });
+    async (_configNo: number, displayName: string, parameters: Record<string, number>, colors?: Record<string, string> | null, lineWidths?: Record<string, number> | null) => {
+      await updateIndicator(_configNo, { displayName, parameters, colors: colors ?? null, lineWidths: lineWidths ?? null });
     },
     [updateIndicator],
   );
 
+  const handleDrawingStyleUpdate = useCallback(
+    async (drawingNo: number, style: import('@/types/chart').DrawingStyle) => {
+      await updateDrawingById(drawingNo, { style });
+    },
+    [updateDrawingById],
+  );
+
   // activeConfigNos always passed for visibility toggle (no more undefined bypass)
+
+  // Build indicator color map from available configs
+  const indicatorColorMap = useMemo(() => {
+    const map = new Map<number, Record<string, string>>();
+    for (const config of availableConfigs) {
+      if (config.colors) {
+        map.set(config.userChartIndicatorConfigNo, config.colors);
+      }
+    }
+    return map.size > 0 ? map : undefined;
+  }, [availableConfigs]);
+
+  // Build indicator line width map from available configs
+  const indicatorLineWidthMap = useMemo(() => {
+    const map = new Map<number, Record<string, number>>();
+    for (const config of availableConfigs) {
+      if (config.lineWidths) {
+        map.set(config.userChartIndicatorConfigNo, config.lineWidths);
+      }
+    }
+    return map.size > 0 ? map : undefined;
+  }, [availableConfigs]);
 
   const panelIndicators = indicators.filter((ind) => isPanelIndicator(ind.indicatorType));
   const hasPanels = panelIndicators.length > 0;
@@ -227,8 +278,11 @@ export function ChartContainer() {
               indicatorActions={indicatorActions}
               activeConfigNos={activeConfigNos}
               drawingActions={drawingActions}
+              activeDrawingNos={activeDrawingNos}
               realtimeQuote={realtimeQuote}
               onRefetch={refreshLatest}
+              indicatorColorMap={indicatorColorMap}
+              indicatorLineWidthMap={indicatorLineWidthMap}
             />
           </div>
 
@@ -249,6 +303,8 @@ export function ChartContainer() {
                 syncManager={syncManagerRef.current}
                 indicatorActions={indicatorActions}
                 activeConfigNos={activeConfigNos}
+                indicatorColorMap={indicatorColorMap}
+                indicatorLineWidthMap={indicatorLineWidthMap}
               />
             </div>
           )}
@@ -278,6 +334,17 @@ export function ChartContainer() {
         editingConfig={editingConfig}
         onSubmit={async () => {}}
         onUpdate={handleEditUpdate}
+      />
+
+      {/* Edit Drawing Dialog */}
+      <EditDrawingDialog
+        open={drawingEditOpen}
+        onOpenChange={(open) => {
+          setDrawingEditOpen(open);
+          if (!open) setEditingDrawing(null);
+        }}
+        drawing={editingDrawing}
+        onUpdate={handleDrawingStyleUpdate}
       />
     </div>
   );

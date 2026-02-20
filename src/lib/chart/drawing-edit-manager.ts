@@ -7,7 +7,7 @@ import type {
   Time,
 } from 'lightweight-charts';
 import type { DrawingPoint, UserChartDrawing } from '@/types/chart';
-import type { ParallelChannelPrimitive } from './primitives/parallel-channel-primitive';
+import type { IDrawingPrimitive } from './primitives/drawing-primitive';
 import { DrawingHandlesPrimitive } from './primitives/drawing-handles-primitive';
 
 interface PixelPoint {
@@ -18,7 +18,7 @@ interface PixelPoint {
 interface DrawingEditManagerOptions {
   chart: IChartApi;
   series: ISeriesApi<SeriesType>;
-  primitiveMap: Map<number, ParallelChannelPrimitive>;
+  primitiveMap: Map<number, IDrawingPrimitive>;
   getDrawings: () => UserChartDrawing[];
   onUpdate: (drawingNo: number, points: DrawingPoint[]) => Promise<void>;
   onDelete: (drawingNo: number) => Promise<void>;
@@ -30,7 +30,7 @@ const LINE_HIT_DISTANCE = 6;
 export class DrawingEditManager {
   private _chart: IChartApi;
   private _series: ISeriesApi<SeriesType>;
-  private _primitiveMap: Map<number, ParallelChannelPrimitive>;
+  private _primitiveMap: Map<number, IDrawingPrimitive>;
   private _getDrawings: () => UserChartDrawing[];
   private _onUpdate: (drawingNo: number, points: DrawingPoint[]) => Promise<void>;
   private _onDelete: (drawingNo: number) => Promise<void>;
@@ -146,7 +146,7 @@ export class DrawingEditManager {
     if (!drawing) return;
 
     this._handlesPrimitive = new DrawingHandlesPrimitive();
-    this._handlesPrimitive.setPoints(drawing.points);
+    this._handlesPrimitive.setPoints(this._getHandlePoints(drawing));
     this._series.attachPrimitive(this._handlesPrimitive);
   }
 
@@ -159,6 +159,19 @@ export class DrawingEditManager {
     this._isDragging = false;
     this._dragType = null;
     if (this._container) this._container.style.cursor = '';
+  }
+
+  /** Get points for handle display — type-specific */
+  private _getHandlePoints(drawing: UserChartDrawing): DrawingPoint[] {
+    switch (drawing.drawingType) {
+      case 'HORIZONTAL_LINE':
+        // Single handle at chart center X position
+        return drawing.points.slice(0, 1);
+      case 'RAY':
+        return drawing.points.slice(0, 2);
+      default:
+        return drawing.points;
+    }
   }
 
   // === Mouse Events ===
@@ -185,7 +198,7 @@ export class DrawingEditManager {
           this._pendingDrag = { type: 'handle', drawingNo: this._selectedNo, handleIndex: hIdx };
           return;
         }
-        if (this._isInsideChannel(x, y, drawing)) {
+        if (this._isNearDrawing(x, y, drawing)) {
           e.preventDefault();
           this._pendingDrag = { type: 'body', drawingNo: this._selectedNo, handleIndex: -1 };
           return;
@@ -298,7 +311,7 @@ export class DrawingEditManager {
           this._container.style.cursor = 'grab';
           return;
         }
-        if (this._isInsideChannel(x, y, drawing)) {
+        if (this._isNearDrawing(x, y, drawing)) {
           this._container.style.cursor = 'move';
           return;
         }
@@ -336,6 +349,8 @@ export class DrawingEditManager {
     const primitive = this._primitiveMap.get(this._selectedNo);
     if (!primitive) return;
 
+    const drawing = this._getDrawings().find((d) => d.userChartDrawingNo === this._selectedNo);
+
     // Set dragStartTime on first drag update
     if (this._dragStartTime === 0) {
       this._dragStartTime = time;
@@ -347,26 +362,51 @@ export class DrawingEditManager {
 
     if (this._dragType === 'handle') {
       newPoints = this._dragOriginalPoints.map((p) => ({ ...p }));
-      if (this._dragHandleIndex === 0) {
-        newPoints[0] = { time, price };
-      } else if (this._dragHandleIndex === 1) {
-        newPoints[1] = { time, price };
-      } else if (this._dragHandleIndex === 2) {
-        newPoints[2] = { time, price };
+
+      if (drawing?.drawingType === 'HORIZONTAL_LINE') {
+        // Only move Y (price), keep time fixed
+        newPoints[0] = { ...newPoints[0], price };
+      } else {
+        // Standard handle move
+        const idx = this._dragHandleIndex;
+        if (idx >= 0 && idx < newPoints.length) {
+          newPoints[idx] = { time, price };
+        }
       }
     } else {
-      // Body drag: move all points by the same delta
+      // Body drag
       const timeDelta = time - this._dragStartTime;
       const priceDelta = price - this._dragStartPrice;
-      newPoints = this._dragOriginalPoints.map((p) => ({
-        time: p.time + timeDelta,
-        price: p.price + priceDelta,
-      }));
+
+      if (drawing?.drawingType === 'HORIZONTAL_LINE') {
+        // Only move Y (price), keep time fixed
+        newPoints = this._dragOriginalPoints.map((p) => ({
+          time: p.time,
+          price: p.price + priceDelta,
+        }));
+      } else {
+        newPoints = this._dragOriginalPoints.map((p) => ({
+          time: p.time + timeDelta,
+          price: p.price + priceDelta,
+        }));
+      }
     }
 
     this._lastDragPoints = newPoints;
     primitive.updatePoints(newPoints);
-    this._handlesPrimitive?.setPoints(newPoints);
+    this._handlesPrimitive?.setPoints(this._getHandlePointsFromDrawing(drawing, newPoints));
+  }
+
+  private _getHandlePointsFromDrawing(drawing: UserChartDrawing | undefined, points: DrawingPoint[]): DrawingPoint[] {
+    if (!drawing) return points;
+    switch (drawing.drawingType) {
+      case 'HORIZONTAL_LINE':
+        return points.slice(0, 1);
+      case 'RAY':
+        return points.slice(0, 2);
+      default:
+        return points;
+    }
   }
 
   private async _endDrag(): Promise<void> {
@@ -386,13 +426,14 @@ export class DrawingEditManager {
       if (pointsChanged) {
         try {
           await this._onUpdate(drawingNo, this._lastDragPoints);
-          // Update handles to saved position
-          this._handlesPrimitive?.setPoints(this._lastDragPoints);
+          const drawing = this._getDrawings().find((d) => d.userChartDrawingNo === drawingNo);
+          this._handlesPrimitive?.setPoints(this._getHandlePointsFromDrawing(drawing, this._lastDragPoints));
         } catch {
           // Restore original on error
           const primitive = this._primitiveMap.get(drawingNo);
           primitive?.updatePoints(this._dragOriginalPoints);
-          this._handlesPrimitive?.setPoints(this._dragOriginalPoints);
+          const drawing = this._getDrawings().find((d) => d.userChartDrawingNo === drawingNo);
+          this._handlesPrimitive?.setPoints(this._getHandlePointsFromDrawing(drawing, this._dragOriginalPoints));
         }
       }
     }
@@ -453,7 +494,8 @@ export class DrawingEditManager {
         if (this._selectedNo !== null) {
           const primitive = this._primitiveMap.get(this._selectedNo);
           primitive?.updatePoints(this._dragOriginalPoints);
-          this._handlesPrimitive?.setPoints(this._dragOriginalPoints);
+          const drawing = this._getDrawings().find((d) => d.userChartDrawingNo === this._selectedNo);
+          this._handlesPrimitive?.setPoints(this._getHandlePointsFromDrawing(drawing, this._dragOriginalPoints));
         }
         this._isDragging = false;
         this._dragType = null;
@@ -482,8 +524,7 @@ export class DrawingEditManager {
         return { drawingNo: drawing.userChartDrawingNo, handleIndex };
       }
 
-      const lines = this._getLinePixels(drawing);
-      if (lines && (this._isNearLine(x, y, lines) || this._isInsideChannel(x, y, drawing))) {
+      if (this._isNearDrawing(x, y, drawing)) {
         return { drawingNo: drawing.userChartDrawingNo, handleIndex: null };
       }
     }
@@ -501,36 +542,116 @@ export class DrawingEditManager {
     return null;
   }
 
+  /** Check if point is near the drawing (type-specific) */
+  private _isNearDrawing(x: number, y: number, drawing: UserChartDrawing): boolean {
+    switch (drawing.drawingType) {
+      case 'HORIZONTAL_LINE':
+        return this._isNearHorizontalLine(y, drawing);
+      case 'RAY':
+        return this._isNearRay(x, y, drawing);
+      default:
+        return this._isNearChannel(x, y, drawing);
+    }
+  }
+
+  private _isNearHorizontalLine(y: number, drawing: UserChartDrawing): boolean {
+    if (drawing.points.length < 1) return false;
+    const py = this._series.priceToCoordinate(drawing.points[0].price);
+    if (py === null) return false;
+    return Math.abs(y - (py as number)) < LINE_HIT_DISTANCE;
+  }
+
+  private _isNearRay(x: number, y: number, drawing: UserChartDrawing): boolean {
+    if (drawing.points.length < 2) return false;
+    const timeScale = this._chart.timeScale();
+
+    const p0x = timeScale.timeToCoordinate(drawing.points[0].time as unknown as Time);
+    const p0y = this._series.priceToCoordinate(drawing.points[0].price);
+    const p1x = timeScale.timeToCoordinate(drawing.points[1].time as unknown as Time);
+    const p1y = this._series.priceToCoordinate(drawing.points[1].price);
+
+    if (p0x === null || p0y === null || p1x === null || p1y === null) return false;
+
+    const start = { x: p0x as number, y: p0y as number };
+    const end = { x: p1x as number, y: p1y as number };
+
+    // Extend ray to chart width
+    const chartWidth = this._chart.timeScale().width();
+    const extended = this._extendToX(start, end, chartWidth);
+
+    return this._distToSegment(x, y, start, extended) < LINE_HIT_DISTANCE;
+  }
+
+  private _isNearChannel(x: number, y: number, drawing: UserChartDrawing): boolean {
+    const lines = this._getChannelLinePixels(drawing);
+    if (!lines) return false;
+
+    return (
+      this._distToSegment(x, y, lines.l1s, lines.l1e) < LINE_HIT_DISTANCE ||
+      this._distToSegment(x, y, lines.l2s, lines.l2e) < LINE_HIT_DISTANCE ||
+      this._isPointInQuad(x, y, lines.l1s, lines.l1e, lines.l2e, lines.l2s)
+    );
+  }
+
   private _getHandlePixels(drawing: UserChartDrawing): PixelPoint[] {
     const timeScale = this._chart.timeScale();
     const series = this._series;
     const handles: PixelPoint[] = [];
-    const p = drawing.points;
-    if (p.length < 3) return handles;
 
-    const p0x = timeScale.timeToCoordinate(p[0].time as unknown as Time);
-    const p0y = series.priceToCoordinate(p[0].price);
-    const p1x = timeScale.timeToCoordinate(p[1].time as unknown as Time);
-    const p1y = series.priceToCoordinate(p[1].price);
+    switch (drawing.drawingType) {
+      case 'HORIZONTAL_LINE': {
+        if (drawing.points.length < 1) return handles;
+        const py = series.priceToCoordinate(drawing.points[0].price);
+        if (py !== null) {
+          // Position handle at chart center X
+          const chartWidth = this._chart.timeScale().width();
+          handles.push({ x: chartWidth / 2, y: py as number });
+        }
+        return handles;
+      }
 
-    if (p0x !== null && p0y !== null) handles.push({ x: p0x as number, y: p0y as number });
-    if (p1x !== null && p1y !== null) handles.push({ x: p1x as number, y: p1y as number });
+      case 'RAY': {
+        const p = drawing.points;
+        if (p.length < 2) return handles;
+        const p0x = timeScale.timeToCoordinate(p[0].time as unknown as Time);
+        const p0y = series.priceToCoordinate(p[0].price);
+        const p1x = timeScale.timeToCoordinate(p[1].time as unknown as Time);
+        const p1y = series.priceToCoordinate(p[1].price);
+        if (p0x !== null && p0y !== null) handles.push({ x: p0x as number, y: p0y as number });
+        if (p1x !== null && p1y !== null) handles.push({ x: p1x as number, y: p1y as number });
+        return handles;
+      }
 
-    // Handle 2 at line 2's start point (pixel-space offset for straight line rendering)
-    const hp2x = timeScale.timeToCoordinate(p[2].time as unknown as Time);
-    const hp2y = series.priceToCoordinate(p[2].price);
-    if (p0x !== null && p0y !== null && p1x !== null && p1y !== null && hp2x !== null && hp2y !== null) {
-      const hdx = (p1x as number) - (p0x as number);
-      const ht = hdx === 0 ? 0 : ((hp2x as number) - (p0x as number)) / hdx;
-      const hInterpY = (p0y as number) + ht * ((p1y as number) - (p0y as number));
-      const hPixelOffsetY = (hp2y as number) - hInterpY;
-      handles.push({ x: p0x as number, y: (p0y as number) + hPixelOffsetY });
+      default: {
+        // PARALLEL_CHANNEL
+        const p = drawing.points;
+        if (p.length < 3) return handles;
+
+        const p0x = timeScale.timeToCoordinate(p[0].time as unknown as Time);
+        const p0y = series.priceToCoordinate(p[0].price);
+        const p1x = timeScale.timeToCoordinate(p[1].time as unknown as Time);
+        const p1y = series.priceToCoordinate(p[1].price);
+
+        if (p0x !== null && p0y !== null) handles.push({ x: p0x as number, y: p0y as number });
+        if (p1x !== null && p1y !== null) handles.push({ x: p1x as number, y: p1y as number });
+
+        // Handle 2 at line 2's start point (pixel-space offset)
+        const hp2x = timeScale.timeToCoordinate(p[2].time as unknown as Time);
+        const hp2y = series.priceToCoordinate(p[2].price);
+        if (p0x !== null && p0y !== null && p1x !== null && p1y !== null && hp2x !== null && hp2y !== null) {
+          const hdx = (p1x as number) - (p0x as number);
+          const ht = hdx === 0 ? 0 : ((hp2x as number) - (p0x as number)) / hdx;
+          const hInterpY = (p0y as number) + ht * ((p1y as number) - (p0y as number));
+          const hPixelOffsetY = (hp2y as number) - hInterpY;
+          handles.push({ x: p0x as number, y: (p0y as number) + hPixelOffsetY });
+        }
+
+        return handles;
+      }
     }
-
-    return handles;
   }
 
-  private _getLinePixels(
+  private _getChannelLinePixels(
     drawing: UserChartDrawing,
   ): { l1s: PixelPoint; l1e: PixelPoint; l2s: PixelPoint; l2e: PixelPoint } | null {
     const timeScale = this._chart.timeScale();
@@ -545,7 +666,6 @@ export class DrawingEditManager {
 
     if (p0x === null || p0y === null || p1x === null || p1y === null) return null;
 
-    // Pixel-space offset for straight line rendering
     const lp2x = timeScale.timeToCoordinate(p[2].time as unknown as Time);
     const lp2y = series.priceToCoordinate(p[2].price);
 
@@ -564,21 +684,12 @@ export class DrawingEditManager {
     };
   }
 
-  private _isNearLine(
-    x: number,
-    y: number,
-    lines: { l1s: PixelPoint; l1e: PixelPoint; l2s: PixelPoint; l2e: PixelPoint },
-  ): boolean {
-    return (
-      this._distToSegment(x, y, lines.l1s, lines.l1e) < LINE_HIT_DISTANCE ||
-      this._distToSegment(x, y, lines.l2s, lines.l2e) < LINE_HIT_DISTANCE
-    );
-  }
-
-  private _isInsideChannel(x: number, y: number, drawing: UserChartDrawing): boolean {
-    const lines = this._getLinePixels(drawing);
-    if (!lines) return false;
-    return this._isPointInQuad(x, y, lines.l1s, lines.l1e, lines.l2e, lines.l2s);
+  private _extendToX(from: PixelPoint, to: PixelPoint, targetX: number): PixelPoint {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (dx === 0) return { x: targetX, y: to.y };
+    const t = (targetX - from.x) / dx;
+    return { x: targetX, y: from.y + dy * t };
   }
 
   private _isPointInQuad(

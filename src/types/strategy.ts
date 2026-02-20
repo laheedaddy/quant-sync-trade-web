@@ -2,7 +2,7 @@
 // Constants
 // ──────────────────────────────────────────────
 
-export const INDICATOR_TYPES = ['MA', 'EMA', 'RSI', 'MACD', 'BOLLINGER', 'STOCHASTIC', 'DRAWING_CHANNEL'] as const;
+export const INDICATOR_TYPES = ['MA', 'EMA', 'RSI', 'MACD', 'BOLLINGER', 'STOCHASTIC', 'DRAWING_CHANNEL', 'ADX', 'SUPERTREND', 'ICHIMOKU', 'CCI', 'ROC', 'ATR', 'KELTNER', 'DONCHIAN', 'OBV', 'VWAP', 'PIVOT', 'PSAR', 'TREND_SCORE'] as const;
 export type IndicatorType = (typeof INDICATOR_TYPES)[number];
 
 export const SIGNAL_RULE_TYPES = ['BUY', 'SELL'] as const;
@@ -166,6 +166,8 @@ export interface GetUserIndicatorConfigDto {
   displayName: string;
   parameters: Record<string, number>;
   paramHash: string;
+  colors?: Record<string, string> | null;
+  lineWidths?: Record<string, number> | null;
   isActive: boolean;
   isDelete: boolean;
   createdAt: string;
@@ -208,12 +210,16 @@ export interface CreateIndicatorRequest {
   indicatorType: IndicatorType;
   displayName: string;
   parameters: Record<string, number>;
+  colors?: Record<string, string> | null;
+  lineWidths?: Record<string, number> | null;
 }
 
 export interface UpdateIndicatorRequest {
   displayName?: string;
   parameters?: Record<string, number>;
   isActive?: boolean;
+  colors?: Record<string, string> | null;
+  lineWidths?: Record<string, number> | null;
 }
 
 export interface CreateRuleRequest {
