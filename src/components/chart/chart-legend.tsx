@@ -62,6 +62,7 @@ export function ChartLegend({ candle, indicators, indicatorActions, activeConfig
           actions={indicatorActions}
           isActive={activeConfigNos?.includes(ind.indicatorConfigNo) ?? true}
           customColors={indicatorColorMap?.get(ind.indicatorConfigNo)}
+          hoveredTradedAt={candle?.tradedAt}
         />
       ))}
 
@@ -85,11 +86,21 @@ interface IndicatorLegendLineProps {
   actions?: IndicatorActions;
   isActive: boolean;
   customColors?: Record<string, string>;
+  hoveredTradedAt?: string | null;
 }
 
-function IndicatorLegendLine({ indicator, actions, isActive, customColors }: IndicatorLegendLineProps) {
-  const lastData = indicator.data[indicator.data.length - 1];
-  if (!lastData) return null;
+function IndicatorLegendLine({ indicator, actions, isActive, customColors, hoveredTradedAt }: IndicatorLegendLineProps) {
+  const displayData = (() => {
+    if (hoveredTradedAt) {
+      const targetTs = Math.floor(new Date(hoveredTradedAt).getTime() / 1000);
+      const matched = indicator.data.find((d) =>
+        Math.floor(new Date(d.calculatedAt).getTime() / 1000) === targetTs,
+      );
+      if (matched) return matched;
+    }
+    return indicator.data[indicator.data.length - 1];
+  })();
+  if (!displayData) return null;
 
   const color = customColors
     ? Object.values(customColors)[0] ?? getIndicatorColor(indicator.indicatorType)
@@ -134,7 +145,7 @@ function IndicatorLegendLine({ indicator, actions, isActive, customColors }: Ind
       )}
 
       {/* 값 표시 (숨겨진 상태에서는 값 생략) */}
-      {isActive && Object.entries(lastData.value).map(([key, val]) => (
+      {isActive && Object.entries(displayData.value).map(([key, val]) => (
         <span key={key} style={{ color }} className="opacity-80">
           {typeof val === 'number' ? formatPrice(val) : String(val)}
         </span>

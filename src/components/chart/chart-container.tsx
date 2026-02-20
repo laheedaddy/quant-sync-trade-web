@@ -25,6 +25,12 @@ export function ChartContainer() {
   const { candles, indicators, isLoading, loadMore, refetch, refreshLatest } = useChartData();
   const syncManagerRef = useRef(new ChartSyncManager());
 
+  // Track crosshair time from sync manager (for panel legend value updates)
+  const [crosshairTime, setCrosshairTime] = useState<number | null>(null);
+  useEffect(() => {
+    return syncManagerRef.current.onCrosshairTimeChange(setCrosshairTime);
+  }, []);
+
   // Load chart settings from server
   useChartSettings();
 
@@ -305,6 +311,7 @@ export function ChartContainer() {
                 activeConfigNos={activeConfigNos}
                 indicatorColorMap={indicatorColorMap}
                 indicatorLineWidthMap={indicatorLineWidthMap}
+                crosshairTime={crosshairTime}
               />
             </div>
           )}

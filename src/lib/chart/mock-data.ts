@@ -12,6 +12,8 @@ function getTimeframeMs(tf: Timeframe): number {
     '4hour': 14_400_000,
     '1day': 86_400_000,
     '1week': 604_800_000,
+    '1month': 2_592_000_000,
+    '1year': 31_536_000_000,
   };
   return map[tf];
 }

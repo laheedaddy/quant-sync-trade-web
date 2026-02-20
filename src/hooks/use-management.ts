@@ -8,17 +8,12 @@ import {
   deleteStock,
   syncStocksFromFmp,
   syncCryptoFromBinance,
-  fetchCollectionTargets,
-  createCollectionTarget,
-  updateCollectionTarget,
-  deleteCollectionTarget,
-  backfillCollectionTarget,
+  backfillStock,
+  collectDaily,
 } from '@/lib/api/management';
 import type {
   Stock,
   CreateStockRequest,
-  CollectionTarget,
-  CreateCollectionTargetRequest,
   BackfillRequest,
 } from '@/types/management';
 import { showError, showSuccess } from '@/lib/toast';
@@ -68,6 +63,19 @@ export function useStockManagement() {
     }
   }, []);
 
+  const toggleCollection = useCallback(async (stockNo: number, currentlyActive: boolean) => {
+    try {
+      const updated = await updateStock(stockNo, { isCollectionActive: !currentlyActive });
+      setStocks((prev) =>
+        prev.map((s) => (s.stockNo === stockNo ? updated : s)),
+      );
+      showSuccess(updated.isCollectionActive ? '수집이 활성화되었습니다.' : '수집이 비활성화되었습니다.');
+    } catch (err) {
+      showError(err, '수집 상태 변경 실패');
+      throw err;
+    }
+  }, []);
+
   const remove = useCallback(async (stockNo: number) => {
     try {
       await deleteStock(stockNo);
@@ -101,69 +109,10 @@ export function useStockManagement() {
     }
   }, []);
 
-  return { stocks, isLoading, load, create, toggle, remove, syncFmp, syncBinance };
-}
-
-// ──────────────────────────────────────────────
-// useCollectionTargetManagement
-// ──────────────────────────────────────────────
-
-export function useCollectionTargetManagement() {
-  const [targets, setTargets] = useState<CollectionTarget[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setIsLoading(true);
+  const backfill = useCallback(async (stockNo: number, body: BackfillRequest) => {
     try {
-      const list = await fetchCollectionTargets();
-      setTargets(list);
-    } catch (err) {
-      showError(err, '수집 대상 목록 조회 실패');
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  const create = useCallback(async (body: CreateCollectionTargetRequest) => {
-    try {
-      const created = await createCollectionTarget(body);
-      setTargets((prev) => [...prev, created]);
-      showSuccess('수집 대상이 등록되었습니다.');
-      return created;
-    } catch (err) {
-      showError(err, '수집 대상 등록 실패');
-      throw err;
-    }
-  }, []);
-
-  const toggle = useCallback(async (collectionTargetNo: number, currentlyActive: boolean) => {
-    try {
-      const updated = await updateCollectionTarget(collectionTargetNo, { isActive: !currentlyActive });
-      setTargets((prev) =>
-        prev.map((t) => (t.collectionTargetNo === collectionTargetNo ? updated : t)),
-      );
-      showSuccess(updated.isActive ? '수집이 활성화되었습니다.' : '수집이 비활성화되었습니다.');
-    } catch (err) {
-      showError(err, '수집 대상 수정 실패');
-      throw err;
-    }
-  }, []);
-
-  const remove = useCallback(async (collectionTargetNo: number) => {
-    try {
-      await deleteCollectionTarget(collectionTargetNo);
-      setTargets((prev) => prev.filter((t) => t.collectionTargetNo !== collectionTargetNo));
-      showSuccess('수집 대상이 삭제되었습니다.');
-    } catch (err) {
-      showError(err, '수집 대상 삭제 실패');
-      throw err;
-    }
-  }, []);
-
-  const backfill = useCallback(async (collectionTargetNo: number, body: BackfillRequest) => {
-    try {
-      const result = await backfillCollectionTarget(collectionTargetNo, body);
-      showSuccess(`Backfill 완료: ${result.collected}건 수집 (${result.from} ~ ${result.to})`);
+      const result = await backfillStock(stockNo, body);
+      showSuccess(`Backfill 완료: ${result.totalCollected}건 수집 (${result.from} ~ ${result.to}, ${Object.keys(result.timeframeResults).length}개 타임프레임)`);
       return result;
     } catch (err) {
       showError(err, 'Backfill 실패');
@@ -171,5 +120,16 @@ export function useCollectionTargetManagement() {
     }
   }, []);
 
-  return { targets, isLoading, load, create, toggle, remove, backfill };
+  const collectDailyAll = useCallback(async () => {
+    try {
+      const result = await collectDaily();
+      showSuccess(`일봉 수집 완료: 주식 ${result.stock}건, 크립토 ${result.crypto}건`);
+      return result;
+    } catch (err) {
+      showError(err, '일봉 수집 실패');
+      throw err;
+    }
+  }, []);
+
+  return { stocks, isLoading, load, create, toggle, toggleCollection, remove, syncFmp, syncBinance, backfill, collectDailyAll };
 }

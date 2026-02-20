@@ -46,10 +46,12 @@ function DraggableWatchlistItemRow({
   item,
   groupNo,
   onRemove,
+  isSelected,
 }: {
   item: WatchlistItem;
   groupNo: number;
   onRemove: (groupNo: number, itemNo: number) => void;
+  isSelected: boolean;
 }) {
   const {
     attributes,
@@ -66,7 +68,7 @@ function DraggableWatchlistItemRow({
       ref={setNodeRef}
       className={`flex items-center gap-2 px-3 py-1.5 hover:bg-[#1e222d] transition-colors group/item ${
         isDragging ? 'opacity-30' : ''
-      }`}
+      }${isSelected ? ' bg-[#2962ff]/10 border-l-2 border-l-[#2962ff]' : ''}`}
     >
       {/* Drag handle */}
       <button
@@ -106,23 +108,20 @@ function StaticWatchlistItemRow({ item }: { item: WatchlistItem }) {
           {item.stockName}
         </span>
       </div>
-      <div className="flex items-center gap-1.5 shrink-0 text-right">
+      <div className="shrink-0 text-right min-w-[100px]">
         {price != null ? (
           <>
-            <span className="text-xs font-mono text-[#d1d4dc] w-16 text-right">
+            <div className="text-xs font-mono text-[#d1d4dc] leading-tight">
               {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <span className={`text-[10px] font-mono w-20 text-right ${changeColor}`}>
-              {change != null && changePercent != null ? (
-                <>
-                  {isPositive ? '+' : ''}{change.toFixed(2)}{' '}
-                  ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
-                </>
-              ) : null}
-            </span>
+            </div>
+            {change != null && changePercent != null ? (
+              <div className={`text-[10px] font-mono leading-tight ${changeColor}`}>
+                {isPositive ? '+' : ''}{change.toFixed(2)} ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
+              </div>
+            ) : null}
           </>
         ) : (
-          <span className="text-[10px] text-[#787b86] w-36 text-right">—</span>
+          <span className="text-[10px] text-[#787b86]">—</span>
         )}
       </div>
     </div>
@@ -168,23 +167,20 @@ function WatchlistItemContent({
       </button>
 
       {/* Price data */}
-      <div className="flex items-center gap-1.5 shrink-0 text-right">
+      <div className="shrink-0 text-right min-w-[100px]">
         {price != null ? (
           <>
-            <span className="text-xs font-mono text-[#d1d4dc] w-16 text-right">
+            <div className="text-xs font-mono text-[#d1d4dc] leading-tight">
               {price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-            <span className={`text-[10px] font-mono w-20 text-right ${changeColor}`}>
-              {change != null && changePercent != null ? (
-                <>
-                  {isPositive ? '+' : ''}{change.toFixed(2)}{' '}
-                  ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
-                </>
-              ) : null}
-            </span>
+            </div>
+            {change != null && changePercent != null ? (
+              <div className={`text-[10px] font-mono leading-tight ${changeColor}`}>
+                {isPositive ? '+' : ''}{change.toFixed(2)} ({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)
+              </div>
+            ) : null}
           </>
         ) : (
-          <span className="text-[10px] text-[#787b86] w-36 text-right">—</span>
+          <span className="text-[10px] text-[#787b86]">—</span>
         )}
       </div>
 
@@ -211,6 +207,7 @@ function WatchlistGroupSection({
   onRenameGroup,
   onAddSymbol,
   isDropTarget,
+  selectedSymbol,
 }: {
   group: WatchlistGroup;
   onRemoveItem: (groupNo: number, itemNo: number) => void;
@@ -218,6 +215,7 @@ function WatchlistGroupSection({
   onRenameGroup: (groupNo: number, newName: string) => void;
   onAddSymbol: (groupNo: number) => void;
   isDropTarget: boolean;
+  selectedSymbol: string;
 }) {
   const [expanded, setExpanded] = useState(true);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -327,6 +325,7 @@ function WatchlistGroupSection({
                 item={item}
                 groupNo={group.userWatchlistGroupNo}
                 onRemove={onRemoveItem}
+                isSelected={item.symbol === selectedSymbol}
               />
             ))
           )}
@@ -569,6 +568,7 @@ export function WatchlistPanel() {
                   onRenameGroup={handleRenameGroup}
                   onAddSymbol={handleAddSymbolToGroup}
                   isDropTarget={overGroupNo === group.userWatchlistGroupNo && overGroupNo !== activeGroupNo}
+                  selectedSymbol={symbol}
                 />
               ))}
             </div>

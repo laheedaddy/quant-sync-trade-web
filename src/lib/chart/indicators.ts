@@ -12,6 +12,8 @@ export interface IndicatorSeriesConfig {
     priceScaleId?: string;
   }[];
   referenceLines?: { value: number; color: string; label: string }[];
+  /** Keys to display in the panel legend (defaults to series keys if omitted) */
+  legendKeys?: string[];
 }
 
 export function getIndicatorSeriesConfig(
@@ -242,6 +244,7 @@ function _getBaseIndicatorSeriesConfig(indicatorType: IndicatorType): IndicatorS
           { value: 70, color: '#26a69a80', label: 'Strong' },
           { value: 30, color: '#ef535080', label: 'Weak' },
         ],
+        legendKeys: ['score', 'maScore', 'slopeScore', 'adxScore', 'breakoutScore', 'volumeScore'],
       };
 
     default:

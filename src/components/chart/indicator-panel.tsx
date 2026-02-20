@@ -39,9 +39,11 @@ interface IndicatorPanelProps {
   activeConfigNos?: number[];
   indicatorColorMap?: Map<number, Record<string, string>>;
   indicatorLineWidthMap?: Map<number, Record<string, number>>;
+  /** Crosshair time from sync manager (for legend value updates across charts) */
+  crosshairTime?: number | null;
 }
 
-export function IndicatorPanel({ candles, indicators, syncManager, indicatorActions, activeConfigNos, indicatorColorMap, indicatorLineWidthMap }: IndicatorPanelProps) {
+export function IndicatorPanel({ candles, indicators, syncManager, indicatorActions, activeConfigNos, indicatorColorMap, indicatorLineWidthMap, crosshairTime }: IndicatorPanelProps) {
   const { timeframe } = useChartStore();
   const panelIndicators = indicators.filter((ind) => isPanelIndicator(ind.indicatorType));
   const candleTimestamps = useMemo(() => getCandleTimestamps(candles, timeframe), [candles, timeframe]);
@@ -60,6 +62,7 @@ export function IndicatorPanel({ candles, indicators, syncManager, indicatorActi
           isActive={activeConfigNos?.includes(indicator.indicatorConfigNo) ?? true}
           customColors={indicatorColorMap?.get(indicator.indicatorConfigNo)}
           customLineWidths={indicatorLineWidthMap?.get(indicator.indicatorConfigNo)}
+          crosshairTime={crosshairTime}
         />
       ))}
     </div>
@@ -74,9 +77,11 @@ interface SingleIndicatorPanelProps {
   isActive: boolean;
   customColors?: Record<string, string>;
   customLineWidths?: Record<string, number>;
+  /** Crosshair time from parent (sync manager) — covers cross-chart sync */
+  crosshairTime?: number | null;
 }
 
-function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indicatorActions, isActive, customColors, customLineWidths }: SingleIndicatorPanelProps) {
+function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indicatorActions, isActive, customColors, customLineWidths, crosshairTime }: SingleIndicatorPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<Map<string, ISeriesApi<SeriesType>>>(new Map());
@@ -128,6 +133,9 @@ function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indica
     }
     seriesRef.current.clear();
 
+    let firstSeries: ISeriesApi<SeriesType> | null = null;
+    let firstSeriesDataMap: Map<number, number> | null = null;
+
     for (const seriesConfig of config.series) {
       if (seriesConfig.seriesType === 'line') {
         const series = chart.addSeries(LineSeries, {
@@ -140,6 +148,11 @@ function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indica
         const paddedData = padWithWhitespace(data, candleTimestamps);
         if (paddedData.length > 0) series.setData(paddedData);
         seriesRef.current.set(seriesConfig.key, series);
+        if (!firstSeries) {
+          firstSeries = series;
+          firstSeriesDataMap = new Map<number, number>();
+          for (const d of data) firstSeriesDataMap.set(d.time as number, d.value);
+        }
       } else if (seriesConfig.seriesType === 'histogram') {
         const series = chart.addSeries(HistogramSeries, {
           priceScaleId: seriesConfig.priceScaleId,
@@ -156,7 +169,17 @@ function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indica
         const paddedData = padWithWhitespace(data, candleTimestamps);
         if (paddedData.length > 0) series.setData(paddedData);
         seriesRef.current.set(seriesConfig.key, series);
+        if (!firstSeries) {
+          firstSeries = series;
+          firstSeriesDataMap = new Map<number, number>();
+          for (const d of data) firstSeriesDataMap.set(d.time as number, d.value);
+        }
       }
+    }
+
+    // Register first series with sync manager for crosshair sync
+    if (firstSeries && firstSeriesDataMap) {
+      syncManager?.setMainSeries(chart, firstSeries, firstSeriesDataMap);
     }
 
     // Add reference lines (overbought/oversold)
@@ -180,7 +203,24 @@ function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indica
     syncManager?.applyCurrentRange(chart);
   }, [indicator, config, candleTimestamps, syncManager, showReferenceLines]);
 
-  const lastData = indicator.data[indicator.data.length - 1];
+  // Build time→data map for O(1) crosshair lookup
+  const dataByTime = useMemo(() => {
+    const map = new Map<number, (typeof indicator.data)[0]>();
+    for (const d of indicator.data) {
+      const ts = Math.floor(new Date(d.calculatedAt).getTime() / 1000);
+      map.set(ts, d);
+    }
+    return map;
+  }, [indicator.data]);
+
+  // Show indicator values at crosshair position (fallback to last data)
+  const displayData = useMemo(() => {
+    if (crosshairTime != null) {
+      const matched = dataByTime.get(crosshairTime);
+      if (matched) return matched;
+    }
+    return indicator.data[indicator.data.length - 1];
+  }, [crosshairTime, dataByTime, indicator.data]);
 
   return (
     <div className="relative border-t border-[#1e222d] flex-1 min-h-0">
@@ -219,13 +259,13 @@ function SingleIndicatorPanel({ indicator, candleTimestamps, syncManager, indica
           )}
         </div>
 
-        {lastData && (
+        {displayData && (
           <span className="text-xs font-mono text-[#d1d4dc]">
-            {config.series
-              .filter((s) => lastData.value[s.key] != null)
-              .map((s) => {
-                const v = lastData.value[s.key];
-                return `${s.key}: ${typeof v === 'number' ? formatPrice(v, 4) : v}`;
+            {(config.legendKeys ?? config.series.map((s) => s.key))
+              .filter((key) => displayData.value[key] != null)
+              .map((key) => {
+                const v = displayData.value[key];
+                return `${key}: ${typeof v === 'number' ? formatPrice(v, 4) : v}`;
               })
               .join(' | ')}
           </span>

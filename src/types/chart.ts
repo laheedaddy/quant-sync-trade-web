@@ -73,7 +73,7 @@ export interface UpdateChartIndicatorRequest {
 
 export type IndicatorType = 'MA' | 'EMA' | 'RSI' | 'MACD' | 'BOLLINGER' | 'STOCHASTIC' | 'ADX' | 'SUPERTREND' | 'ICHIMOKU' | 'CCI' | 'ROC' | 'ATR' | 'KELTNER' | 'DONCHIAN' | 'OBV' | 'VWAP' | 'PIVOT' | 'PSAR' | 'TREND_SCORE';
 
-export type Timeframe = '1min' | '3min' | '5min' | '10min' | '15min' | '30min' | '1hour' | '4hour' | '1day' | '1week';
+export type Timeframe = '1min' | '3min' | '5min' | '10min' | '15min' | '30min' | '1hour' | '4hour' | '1day' | '1week' | '1month' | '1year';
 
 export type OverlayIndicator = 'MA' | 'EMA' | 'BOLLINGER' | 'SUPERTREND' | 'ICHIMOKU' | 'KELTNER' | 'DONCHIAN' | 'VWAP' | 'PIVOT' | 'PSAR';
 export type PanelIndicator = 'RSI' | 'MACD' | 'STOCHASTIC' | 'ADX' | 'CCI' | 'ROC' | 'ATR' | 'OBV' | 'TREND_SCORE';
@@ -92,6 +92,8 @@ export const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '4H', value: '4hour' },
   { label: '1D', value: '1day' },
   { label: '1W', value: '1week' },
+  { label: '1M', value: '1month' },
+  { label: '1Y', value: '1year' },
 ];
 
 // ── Drawing types ──

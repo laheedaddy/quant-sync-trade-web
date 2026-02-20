@@ -139,7 +139,7 @@ export function transformIndicatorHistogram(
     .sort((a, b) => (a.time as number) - (b.time as number));
 }
 
-/** Timeframe → bucket interval in seconds */
+/** Timeframe → bucket interval in seconds (1month/1year are approximate — handled specially) */
 const TIMEFRAME_SECONDS: Record<string, number> = {
   '1min': 60,
   '3min': 180,
@@ -151,6 +151,8 @@ const TIMEFRAME_SECONDS: Record<string, number> = {
   '4hour': 14400,
   '1day': 86400,
   '1week': 604800,
+  '1month': 2592000,
+  '1year': 31536000,
 };
 
 /**
@@ -162,6 +164,14 @@ export function getCurrentBucketTimestamp(timeframe: string): UTCTimestamp {
   const now = new Date();
   const interval = TIMEFRAME_SECONDS[timeframe];
   if (!interval) return (Math.floor(now.getTime() / 1000)) as UTCTimestamp;
+
+  if (timeframe === '1year') {
+    return (Math.floor(Date.UTC(now.getUTCFullYear(), 0, 1) / 1000)) as UTCTimestamp;
+  }
+
+  if (timeframe === '1month') {
+    return (Math.floor(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) / 1000)) as UTCTimestamp;
+  }
 
   if (timeframe === '1week') {
     const MONDAY_EPOCH = 345600;

@@ -3,9 +3,6 @@ import type {
   Stock,
   CreateStockRequest,
   UpdateStockRequest,
-  CollectionTarget,
-  CreateCollectionTargetRequest,
-  UpdateCollectionTargetRequest,
   BackfillRequest,
   BackfillResult,
 } from '@/types/management';
@@ -52,37 +49,15 @@ export async function syncCryptoFromBinance(quoteAsset: string = 'USDT'): Promis
   });
 }
 
-// ──────────────────────────────────────────────
-// CollectionTarget
-// ──────────────────────────────────────────────
-
-export async function fetchCollectionTargets(): Promise<CollectionTarget[]> {
-  return consoleApiClient<CollectionTarget[]>('/v1/collector/target');
-}
-
-export async function createCollectionTarget(body: CreateCollectionTargetRequest): Promise<CollectionTarget> {
-  return consoleApiClient<CollectionTarget>('/v1/collector/target', {
+export async function backfillStock(stockNo: number, body: BackfillRequest): Promise<BackfillResult> {
+  return consoleApiClient<BackfillResult>(`/v1/stock/${stockNo}/backfill`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
 }
 
-export async function updateCollectionTarget(no: number, body: UpdateCollectionTargetRequest): Promise<CollectionTarget> {
-  return consoleApiClient<CollectionTarget>(`/v1/collector/target/${no}`, {
-    method: 'PATCH',
-    body: JSON.stringify(body),
-  });
-}
-
-export async function deleteCollectionTarget(no: number): Promise<boolean> {
-  return consoleApiClient<boolean>(`/v1/collector/target/${no}`, {
-    method: 'DELETE',
-  });
-}
-
-export async function backfillCollectionTarget(no: number, body: BackfillRequest): Promise<BackfillResult> {
-  return consoleApiClient<BackfillResult>(`/v1/collector/target/${no}/backfill`, {
+export async function collectDaily(): Promise<{ stock: number; crypto: number }> {
+  return consoleApiClient<{ stock: number; crypto: number }>('/v1/stock/collect-daily', {
     method: 'POST',
-    body: JSON.stringify(body),
   });
 }

@@ -491,3 +491,19 @@ npx shadcn@latest add [component-name]
   - `ChannelDetailView`에서 1초 간격 `getCurrentBucketTimestamp()` 체크
   - 타임프레임 경계(예: 35분→36분) 넘어가면 Status + Monitor API 자동 재호출
   - `bucketKey` 상태로 MonitorSection에 갱신 트리거 전달
+
+### 2026-02-20: Management 페이지 — CollectionTarget → Stock 통합
+- **Collection Targets 탭 제거**: 단일 Stocks 뷰로 통합
+- **Stock 테이블에 `Collect` 토글 추가**: `isCollectionActive` on/off (수집 활성 여부, `isActive`와 분리)
+- **Stock 행에 `Backfill` 버튼 추가**: `POST /v1/stock/:no/backfill` → 전체 타임프레임 일괄 수집
+- **수집 종목 카운트 표시**: "N collecting" 초록색 텍스트
+- **타입 변경**: `Stock` 인터페이스에 `isCollectionActive` 추가, `UpdateStockRequest`에 `isCollectionActive` 추가
+- **제거된 코드**: `CollectionTarget` 타입, `useCollectionTargetManagement` 훅, CollectionTarget API 함수, `TIMEFRAMES`/`COLLECTION_TYPES` 상수
+
+### 2026-02-21: 종목 식별자 확장 (3중 식별자 체계)
+- **타입 확장** (`types/management.ts`):
+  - `Stock` 인터페이스에 `fmpSymbol` (string|null), `isin` (string|null), `cik` (string|null) 추가
+  - `CreateStockRequest`에 `fmpSymbol?`, `isin?` 추가
+- **Management 테이블 확장** (`app/management/page.tsx`):
+  - FMP Symbol 컬럼 추가 (Symbol 옆, 회색 mono)
+  - ISIN 컬럼 추가 (Exchange 옆, 10px mono)

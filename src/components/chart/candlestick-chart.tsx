@@ -333,6 +333,7 @@ export function CandlestickChart({
     }
 
     // Set data based on display type & initialize realtime update refs
+    const priceDataMap = new Map<number, number>();
     if (candleDisplayType === 'line' || candleDisplayType === 'area') {
       const transformed = transformCandles(candles, timeframe);
       const lineData = transformed.map((c) => ({
@@ -340,6 +341,7 @@ export function CandlestickChart({
         value: c.close,
       }));
       candleSeries.setData(lineData);
+      for (const c of transformed) priceDataMap.set(c.time as number, c.close);
       if (transformed.length > 0) {
         const last = transformed[transformed.length - 1];
         lastBarRef.current = { time: last.time, open: last.open, high: last.high, low: last.low, close: last.close };
@@ -349,6 +351,7 @@ export function CandlestickChart({
     } else if (candleDisplayType === 'heikin_ashi') {
       const haData = transformHeikinAshi(candles, timeframe);
       candleSeries.setData(haData);
+      for (const c of haData) priceDataMap.set(c.time as number, c.close);
       if (haData.length >= 2) {
         const sl = haData[haData.length - 2];
         prevHACandleRef.current = { open: sl.open, close: sl.close };
@@ -362,6 +365,7 @@ export function CandlestickChart({
     } else {
       const transformed = transformCandles(candles, timeframe);
       candleSeries.setData(transformed);
+      for (const c of transformed) priceDataMap.set(c.time as number, c.close);
       if (transformed.length > 0) {
         const last = transformed[transformed.length - 1];
         lastBarRef.current = { time: last.time, open: last.open, high: last.high, low: last.low, close: last.close };
@@ -369,6 +373,9 @@ export function CandlestickChart({
       lastRawOHLCRef.current = null;
       prevHACandleRef.current = null;
     }
+
+    // Register with sync manager for crosshair sync
+    syncManager?.setMainSeries(chart, candleSeries, priceDataMap);
 
     // Initialize volume & raw OHLC refs for realtime tick updates
     {
