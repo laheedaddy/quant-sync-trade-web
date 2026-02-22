@@ -3,18 +3,19 @@
 import { useState, useCallback } from 'react';
 import {
   fetchStocks,
-  createStock,
   updateStock,
   deleteStock,
-  syncStocksFromFmp,
-  syncCryptoFromBinance,
+  restoreStock,
   backfillStock,
-  collectDaily,
+  bulkRegisterStocks,
+  enrichProfiles,
+  enrichStock,
 } from '@/lib/api/management';
 import type {
   Stock,
-  CreateStockRequest,
+  StockQuery,
   BackfillRequest,
+  BulkRegisterItem,
 } from '@/types/management';
 import { showError, showSuccess } from '@/lib/toast';
 
@@ -24,29 +25,19 @@ import { showError, showSuccess } from '@/lib/toast';
 
 export function useStockManagement() {
   const [stocks, setStocks] = useState<Stock[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
 
-  const load = useCallback(async (exchange?: string) => {
+  const load = useCallback(async (query?: StockQuery) => {
     setIsLoading(true);
     try {
-      const list = await fetchStocks(exchange);
-      setStocks(list);
+      const { items, totalCount: count } = await fetchStocks(query);
+      setStocks(items);
+      setTotalCount(count);
     } catch (err) {
       showError(err, '종목 목록 조회 실패');
     } finally {
       setIsLoading(false);
-    }
-  }, []);
-
-  const create = useCallback(async (body: CreateStockRequest) => {
-    try {
-      const created = await createStock(body);
-      setStocks((prev) => [...prev, created]);
-      showSuccess('종목이 등록되었습니다.');
-      return created;
-    } catch (err) {
-      showError(err, '종목 등록 실패');
-      throw err;
     }
   }, []);
 
@@ -87,24 +78,16 @@ export function useStockManagement() {
     }
   }, []);
 
-  const syncFmp = useCallback(async (exchange?: string) => {
+  const restore = useCallback(async (stockNo: number) => {
     try {
-      const count = await syncStocksFromFmp(exchange);
-      showSuccess(`FMP 동기화 완료: ${count}건`);
-      return count;
+      const updated = await restoreStock(stockNo);
+      setStocks((prev) =>
+        prev.map((s) => (s.stockNo === stockNo ? updated : s)),
+      );
+      showSuccess('종목이 복원되었습니다.');
+      return updated;
     } catch (err) {
-      showError(err, 'FMP 동기화 실패');
-      throw err;
-    }
-  }, []);
-
-  const syncBinance = useCallback(async () => {
-    try {
-      const count = await syncCryptoFromBinance('USDT');
-      showSuccess(`Binance 동기화 완료: ${count}건`);
-      return count;
-    } catch (err) {
-      showError(err, 'Binance 동기화 실패');
+      showError(err, '종목 복원 실패');
       throw err;
     }
   }, []);
@@ -120,16 +103,60 @@ export function useStockManagement() {
     }
   }, []);
 
-  const collectDailyAll = useCallback(async () => {
+  const bulkRegister = useCallback(async (items: BulkRegisterItem[]) => {
     try {
-      const result = await collectDaily();
-      showSuccess(`일봉 수집 완료: 주식 ${result.stock}건, 크립토 ${result.crypto}건`);
-      return result;
+      const count = await bulkRegisterStocks(items);
+      showSuccess(`${count}개 종목이 등록되었습니다.`);
+      return count;
     } catch (err) {
-      showError(err, '일봉 수집 실패');
+      showError(err, '벌크 등록 실패');
       throw err;
     }
   }, []);
 
-  return { stocks, isLoading, load, create, toggle, toggleCollection, remove, syncFmp, syncBinance, backfill, collectDailyAll };
+  const enrichAll = useCallback(async () => {
+    let totalEnriched = 0;
+    let totalReconciled = 0;
+    let batch = 0;
+    // 반복 호출: 대상이 남아있는 동안 계속
+    while (true) {
+      batch++;
+      const { enriched, reconciled } = await enrichProfiles(100);
+      totalEnriched += enriched;
+      totalReconciled += reconciled;
+      if (enriched === 0 && reconciled === 0) break;
+      showSuccess(`Enrich batch #${batch}: ${enriched}건 보충, ${reconciled}건 병합`);
+    }
+    return { totalEnriched, totalReconciled };
+  }, []);
+
+  const editMeta = useCallback(async (stockNo: number, body: { stockNameLocal?: string | null; tags?: string | null }) => {
+    try {
+      const updated = await updateStock(stockNo, body);
+      setStocks((prev) =>
+        prev.map((s) => (s.stockNo === stockNo ? updated : s)),
+      );
+      showSuccess('종목 메타데이터가 수정되었습니다.');
+      return updated;
+    } catch (err) {
+      showError(err, '메타데이터 수정 실패');
+      throw err;
+    }
+  }, []);
+
+  const enrichOne = useCallback(async (stockNo: number) => {
+    try {
+      const updated = await enrichStock(stockNo);
+      setStocks((prev) =>
+        prev.map((s) => (s.stockNo === stockNo ? updated : s)),
+      );
+      showSuccess('프로필 보충 완료');
+      return updated;
+    } catch (err) {
+      showError(err, '프로필 보충 실패');
+      throw err;
+    }
+  }, []);
+
+  return { stocks, totalCount, isLoading, load, toggle, toggleCollection, remove, restore, backfill, bulkRegister, enrichAll, editMeta, enrichOne };
 }

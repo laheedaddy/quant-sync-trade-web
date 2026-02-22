@@ -507,3 +507,56 @@ npx shadcn@latest add [component-name]
 - **Management 테이블 확장** (`app/management/page.tsx`):
   - FMP Symbol 컬럼 추가 (Symbol 옆, 회색 mono)
   - ISIN 컬럼 추가 (Exchange 옆, 10px mono)
+
+### 2026-02-21: Collect Daily 수동 트리거 + Management UI
+- **`collectDaily()` API 함수** (`lib/api/management.ts`): `POST /v1/stock/collect-daily` 호출
+- **`collectDailyAll()` 훅 메서드** (`hooks/use-management.ts`): 성공/에러 토스트 포함
+- **Collect Daily 버튼** (`app/management/page.tsx`): 초록색 버튼, 툴바에 배치 — 활성 종목 전체 1day 봉 수동 수집
+
+### 2026-02-21: 종목 삭제/비활성화 시 연쇄 처리 (Cascade) + 검색/차트/왓치리스트 경고 표시
+- **백엔드 cascade** (quant-sync-trade):
+  - `CommonSignalChannelService.forceStopReceivingBySymbol(symbol)`: 심볼 기준 모든 채널 `isReceiving=false`, `isConnected=false` 일괄 처리 + PubSub 발행
+  - `CommonSignalChannelService.ensureStockActive(symbol)`: `connect()`/`startReceiving()` 시 비활성/삭제 종목 차단 (`BadRequestException`)
+  - `CommonStockService.updateStock()`: 비활성화 시 `isCollectionActive=false` + `forceStopReceivingBySymbol()` cascade
+  - `CommonStockService.deleteStock()`: `isDelete=true` + `isActive=false` + `isCollectionActive=false` + `forceStopReceivingBySymbol()` cascade
+  - `CommonStockService.restoreStock()`: 삭제된 종목 복원 (`isDelete=false`, `isActive=true`)
+  - `POST /v1/stock/:no/restore` 엔드포인트 추가 (console-api)
+  - `CommonStockModule`에 `CommonSignalChannelModule` import, `CommonSignalChannelModule`에 `CommonMessagingModule` import
+  - `searchStocks()`: `isDelete`/`isActive` 필터 제거 → 비활성/삭제 종목도 검색 노출 (프론트엔드 경고 표시용)
+  - Watchlist `getGroups()`: 아이템에 `s.isActive`, `s.isDelete` (alias `stockIsDelete`) JOIN 추가
+- **프론트엔드 타입** (quant-sync-trade-web):
+  - `StockSearchResult`에 `isActive`, `isDelete` 추가 (`types/stock.ts`)
+  - `WatchlistItem`에 `isActive`, `isDelete` 추가 (`types/watchlist.ts`)
+- **검색 다이얼로그** (`chart/symbol-search-dialog.tsx`):
+  - `SymbolLogo` 컴포넌트: `useState(imgError)` 패턴으로 이미지 fallback (첫 글자 표시)
+  - 비활성 종목: `INACTIVE` 빨간 배지 + "해당 종목은 관리되지 않는 종목입니다"
+  - 삭제 종목: `DELETED` 빨간 배지 + "삭제된 종목입니다"
+- **차트 페이지** (`chart/chart-container.tsx`):
+  - `getStockBySymbol()` API로 종목 상태 확인 (`lib/api/stock.ts`)
+  - 비활성/삭제 종목 진입 시 빨간 경고 배너: "해당 종목은 관리되지 않는 종목입니다. 시세 수신 및 데이터 수집이 중단되었을 수 있습니다."
+- **왓치리스트** (`watchlist/watchlist-panel.tsx`):
+  - `DraggableWatchlistItemRow`: `(!isActive || isDelete)` 시 `opacity-50`
+  - `WatchlistItemContent`: `AlertTriangle` 아이콘 + 삭제/비활성 라벨 구분
+  - `StaticWatchlistItemRow`: `useState(imgError)` 패턴으로 이미지 fallback
+- **왓치리스트 검색** (`watchlist/add-watchlist-item-dialog.tsx`):
+  - `DELETED`/`INACTIVE` 배지 + 경고 문구 + `opacity-50` 처리
+
+### 2026-02-21: Management 페이지 — 종목 복원 + 컨펌 다이얼로그
+- **종목 복원 (Undelete)**:
+  - `restoreStock(no)` API 함수 (`lib/api/management.ts`): `POST /v1/stock/:no/restore`
+  - `restore(stockNo)` 훅 메서드 (`hooks/use-management.ts`): 낙관적 업데이트 + 토스트
+  - 삭제된 종목 행: `opacity-50` + `DELETED` 빨간 배지
+  - Actions: 삭제 종목은 `Delete` 대신 초록색 `Restore` 버튼
+- **Generic Confirm Dialog 패턴** (`app/management/page.tsx`):
+  - `confirmDialog` 상태: `{ title, description, confirmLabel, confirmClassName?, onConfirm }`
+  - 기존 `deleteTarget` / `handleDelete` 패턴을 generic confirm으로 통합
+  - 적용 대상:
+    - **Active 스위치 (비활성화)**: "시그널 채널 중지 + 수집 비활성화" 경고
+    - **Active 스위치 (활성화)**: 확인
+    - **Delete 버튼**: "Active, Collect 비활성화 + 시그널 중지" 경고
+    - **Restore 버튼**: 확인
+    - **Enrich Selected (배치)**: 확인
+    - **Delete Selected (배치)**: "시그널 채널 중지 + 수집 비활성화" 경고
+- **Cascade 동작 정리**:
+  - 비활성화 (`isActive→false`): `isCollectionActive=false` + 시그널 채널 강제 중지
+  - 삭제 (`isDelete→true`): `isActive=false` + `isCollectionActive=false` + 시그널 채널 강제 중지

@@ -12,7 +12,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
-import { ChevronDown, ChevronRight, GripVertical, Plus, Search, Star, Trash2, X, Pencil, Check } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronRight, GripVertical, Plus, Search, Star, Trash2, X, Pencil, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -68,7 +68,7 @@ function DraggableWatchlistItemRow({
       ref={setNodeRef}
       className={`flex items-center gap-2 px-3 py-1.5 hover:bg-[#1e222d] transition-colors group/item ${
         isDragging ? 'opacity-30' : ''
-      }${isSelected ? ' bg-[#2962ff]/10 border-l-2 border-l-[#2962ff]' : ''}`}
+      }${(!item.isActive || item.isDelete) ? ' opacity-50' : ''}${isSelected ? ' bg-[#2962ff]/10 border-l-2 border-l-[#2962ff]' : ''}`}
     >
       {/* Drag handle */}
       <button
@@ -89,6 +89,7 @@ function DraggableWatchlistItemRow({
 
 function StaticWatchlistItemRow({ item }: { item: WatchlistItem }) {
   const quote = useRealtimeQuote(item.symbol);
+  const [imgError, setImgError] = useState(false);
   const price = quote?.price;
   const change = quote?.change;
   const changePercent = quote?.changePercent;
@@ -101,6 +102,18 @@ function StaticWatchlistItemRow({ item }: { item: WatchlistItem }) {
     <div className="flex items-center gap-2 px-3 py-1.5 bg-[#1e222d] border border-[#2962ff] rounded shadow-lg">
       <GripVertical className="w-3 h-3 text-[#787b86] shrink-0" />
       <div className="flex-1 min-w-0 flex items-center gap-2">
+        {item.logoUrl && !imgError ? (
+          <img
+            src={item.logoUrl}
+            alt=""
+            className="w-4 h-4 rounded-full shrink-0 bg-[#1e222d] object-contain"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-4 h-4 rounded-full shrink-0 bg-[#1e222d] flex items-center justify-center text-[7px] font-bold text-[#787b86]">
+            {item.symbol.charAt(0)}
+          </div>
+        )}
         <span className="text-xs font-mono font-semibold text-[#d1d4dc] shrink-0 w-16 truncate">
           {item.symbol}
         </span>
@@ -141,6 +154,7 @@ function WatchlistItemContent({
 }) {
   const quote = useRealtimeQuote(item.symbol);
   const { setSymbol } = useChartStore();
+  const [imgError, setImgError] = useState(false);
 
   const price = quote?.price;
   const change = quote?.change;
@@ -158,9 +172,30 @@ function WatchlistItemContent({
         onClick={() => setSymbol(item.symbol)}
         className="flex-1 min-w-0 flex items-center gap-2 text-left"
       >
+        {item.logoUrl && !imgError ? (
+          <img
+            src={item.logoUrl}
+            alt=""
+            className="w-4 h-4 rounded-full shrink-0 bg-[#1e222d] object-contain"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="w-4 h-4 rounded-full shrink-0 bg-[#1e222d] flex items-center justify-center text-[7px] font-bold text-[#787b86]">
+            {item.symbol.charAt(0)}
+          </div>
+        )}
         <span className="text-xs font-mono font-semibold text-[#d1d4dc] shrink-0 w-16 truncate">
           {item.symbol}
         </span>
+        {(item.isDelete || !item.isActive) && (
+          <AlertTriangle className="w-3 h-3 text-[#ef5350] shrink-0" />
+        )}
+        {item.isDelete && (
+          <span className="text-[9px] text-[#ef5350] shrink-0">삭제</span>
+        )}
+        {!item.isActive && !item.isDelete && (
+          <span className="text-[9px] text-[#ef5350] shrink-0">비활성</span>
+        )}
         <span className="text-[10px] text-[#787b86] truncate flex-1">
           {item.stockName}
         </span>

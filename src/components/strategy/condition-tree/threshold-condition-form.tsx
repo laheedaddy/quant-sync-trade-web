@@ -58,6 +58,21 @@ export function ThresholdConditionForm({ condition, onChange }: ThresholdConditi
         </SelectContent>
       </Select>
 
+      <div className="flex items-center gap-0.5">
+        <Input
+          type="number"
+          step="0.1"
+          value={condition.offsetPercent ?? ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({ ...condition, offsetPercent: v === '' ? undefined : parseFloat(v) });
+          }}
+          placeholder="±%"
+          className="w-14 h-7 text-xs text-center bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"
+        />
+        <span className="text-[10px] text-[#787b86]">%</span>
+      </div>
+
       {isDrawingChannel && (
         <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border ${priceScaleMode === 1 ? 'border-[#ff9800]/50 text-[#ff9800] bg-[#ff9800]/10' : 'border-[#787b86]/40 text-[#787b86] bg-[#787b86]/10'}`}>
           {priceScaleMode === 1 ? 'Log' : 'Linear'}

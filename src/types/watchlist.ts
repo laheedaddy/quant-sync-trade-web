@@ -10,7 +10,11 @@ export interface WatchlistItem {
   symbol: string;
   stockName: string;
   exchange: string;
+  logoUrl: string | null;
+  stockType: string;
   displayOrder: number;
+  isActive: boolean;
+  isDelete: boolean;
 }
 
 export interface CreateWatchlistGroupRequest {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,8 +17,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Search } from 'lucide-react';
+import { Check, Search } from 'lucide-react';
 import { searchStocks } from '@/lib/api/stock';
+import { showSuccess } from '@/lib/toast';
 import type { StockSearchResult } from '@/types/stock';
 import type { WatchlistGroup, AddWatchlistItemRequest } from '@/types/watchlist';
 
@@ -45,6 +46,17 @@ export function AddWatchlistItemDialog({
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // All symbols already in any watchlist group
+  const watchlistSymbols = useMemo(() => {
+    const set = new Set<string>();
+    for (const g of groups) {
+      for (const item of g.items) {
+        set.add(item.symbol);
+      }
+    }
+    return set;
+  }, [groups]);
 
   // Initialize selected group when dialog opens
   useEffect(() => {
@@ -88,6 +100,10 @@ export function AddWatchlistItemDialog({
 
   const handleSelect = useCallback(
     async (item: StockSearchResult) => {
+      if (watchlistSymbols.has(item.symbol)) {
+        showSuccess(`${item.symbol}은(는) 이미 왓치리스트에 등록되어 있습니다.`);
+        return;
+      }
       const groupNo = Number(selectedGroupNo);
       if (!groupNo) return;
       try {
@@ -99,7 +115,7 @@ export function AddWatchlistItemDialog({
         // error handled in hook
       }
     },
-    [selectedGroupNo, onAdd],
+    [selectedGroupNo, onAdd, watchlistSymbols],
   );
 
   const handleKeyDown = useCallback(
@@ -194,32 +210,58 @@ export function AddWatchlistItemDialog({
             </div>
           ) : (
             <div className="pb-1">
-              {results.map((item, idx) => (
-                <button
-                  key={item.symbol}
-                  type="button"
-                  onClick={() => handleSelect(item)}
-                  onMouseEnter={() => setHighlightIdx(idx)}
-                  className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
-                    idx === highlightIdx
-                      ? 'bg-[#2a2e39]'
-                      : 'hover:bg-[#1e222d]'
-                  }`}
-                >
-                  <span className="text-sm font-mono font-semibold text-[#d1d4dc] min-w-[72px]">
-                    {item.symbol}
-                  </span>
-                  <span className="text-xs text-[#787b86] truncate flex-1">
-                    {item.stockName}
-                  </span>
-                  <Badge
-                    variant="outline"
-                    className="text-[10px] px-1.5 py-0 border-[#2a2e39] text-[#787b86] shrink-0"
+              {results.map((item, idx) => {
+                const inWatchlist = watchlistSymbols.has(item.symbol);
+                const isUnavailable = !item.isActive || item.isDelete;
+                return (
+                  <button
+                    key={item.symbol}
+                    type="button"
+                    onClick={() => handleSelect(item)}
+                    onMouseEnter={() => setHighlightIdx(idx)}
+                    className={`w-full flex items-center gap-3 px-3 py-2 text-left transition-colors ${
+                      idx === highlightIdx
+                        ? 'bg-[#2a2e39]'
+                        : 'hover:bg-[#1e222d]'
+                    }${isUnavailable ? ' opacity-50' : ''}`}
                   >
-                    {item.exchangeShortName}
-                  </Badge>
-                </button>
-              ))}
+                    <div className="min-w-[72px] shrink-0">
+                      <span className="text-sm font-mono font-semibold text-[#d1d4dc]">
+                        {item.symbol}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-xs text-[#787b86] truncate block">
+                        {item.stockName}
+                      </span>
+                      {item.isDelete && (
+                        <span className="text-[10px] text-[#ef5350]">삭제된 종목입니다</span>
+                      )}
+                      {!item.isActive && !item.isDelete && (
+                        <span className="text-[10px] text-[#ef5350]">해당 종목은 관리되지 않는 종목입니다</span>
+                      )}
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] px-1.5 py-0 border-[#2a2e39] text-[#787b86] shrink-0"
+                    >
+                      {item.exchangeShortName}
+                    </Badge>
+                    {item.isDelete ? (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-[#ef5350]/40 text-[#ef5350] shrink-0">
+                        DELETED
+                      </Badge>
+                    ) : !item.isActive ? (
+                      <Badge variant="outline" className="text-[9px] px-1 py-0 border-[#ef5350]/40 text-[#ef5350] shrink-0">
+                        INACTIVE
+                      </Badge>
+                    ) : null}
+                    {inWatchlist && (
+                      <Check className="w-3.5 h-3.5 text-[#2962ff] shrink-0" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </ScrollArea>

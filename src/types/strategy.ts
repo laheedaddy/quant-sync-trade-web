@@ -11,6 +11,9 @@ export type SignalRuleType = (typeof SIGNAL_RULE_TYPES)[number];
 export const DELIVERY_TYPES = ['NOTIFICATION', 'AUTO_TRADE', 'BOTH'] as const;
 export type DeliveryType = (typeof DELIVERY_TYPES)[number];
 
+export const DELIVERY_METHODS = ['NOTIFICATION', 'WEBHOOK', 'LOCAL_CLIENT'] as const;
+export type DeliveryMethod = (typeof DELIVERY_METHODS)[number];
+
 export const TIMEFRAMES = ['1min', '5min', '15min', '30min', '1hour', '4hour', '1day'] as const;
 export type Timeframe = (typeof TIMEFRAMES)[number];
 
@@ -93,6 +96,7 @@ export interface ThresholdCondition {
   operator: ComparisonOperator;
   value: number | [number, number];
   index?: number; // 0~4, default 0 (0=최신 완성 캔들)
+  offsetPercent?: number; // 지표값에 적용할 퍼센티지 오프셋 (예: -5 → 값×0.95)
 }
 
 export interface CrossCondition {
@@ -104,6 +108,8 @@ export interface CrossCondition {
   targetField: string | null;
   index?: number; // source 인덱스 0~4, default 0
   targetIndex?: number; // target 인덱스 0~4, default 0
+  offsetPercent?: number; // source 지표값 오프셋
+  targetOffsetPercent?: number; // target 지표값 오프셋
 }
 
 export interface PriceCondition {
@@ -113,6 +119,7 @@ export interface PriceCondition {
   operator: ComparisonOperator;
   priceField: PriceField;
   index?: number; // 0~4, default 0
+  offsetPercent?: number; // 지표값에 적용할 퍼센티지 오프셋
 }
 
 export interface PositionCondition {

@@ -172,9 +172,6 @@ export function ChannelDetailView({
           {liveChannel.strategyName && <span>{liveChannel.strategyName}</span>}
           <span>v{liveChannel.versionNumber ?? '?'}</span>
           <span>{liveChannel.deliveryType}</span>
-          <span className={liveChannel.isAutoTrade ? 'text-[#26a69a]' : ''}>
-            AutoTrade {liveChannel.isAutoTrade ? 'ON' : 'OFF'}
-          </span>
         </div>
 
         {/* ── Action Buttons ── */}

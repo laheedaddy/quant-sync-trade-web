@@ -1,4 +1,29 @@
-import type { VersionSnapshot } from './strategy';
+import type { VersionSnapshot, DeliveryMethod } from './strategy';
+
+// ──────────────────────────────────────────────
+// Delivery Method Config
+// ──────────────────────────────────────────────
+
+export type DeliveryMethodConfig =
+  | { method: 'NOTIFICATION' }
+  | { method: 'WEBHOOK'; webhookConfigNo: number }
+  | { method: 'LOCAL_CLIENT' };
+
+// ──────────────────────────────────────────────
+// Webhook Config
+// ──────────────────────────────────────────────
+
+export interface WebhookConfig {
+  webhookConfigNo: number;
+  userNo: number;
+  name: string;
+  url: string;
+  headers: Record<string, string> | null;
+  isActive: boolean;
+  consecutiveFailures: number;
+  lastDeliveredAt: string | null;
+  createdAt: string;
+}
 
 // ──────────────────────────────────────────────
 // Market Session
@@ -36,6 +61,7 @@ export interface SignalChannel {
   timeframe: string;
   deliveryType: string;
   isAutoTrade: boolean;
+  deliveryMethods?: DeliveryMethodConfig[];
   isConnected: boolean;
   isReceiving: boolean;
   lastSignalType: 'BUY' | 'SELL' | null;
@@ -111,6 +137,8 @@ export interface LeafConditionEval {
   targetValue: number | null;
   prevValue?: number | null;
   prevTargetValue?: number | null;
+  offsetPercent?: number;
+  rawValue?: number | null;
 }
 
 export interface ConditionGroupEval {
@@ -153,4 +181,5 @@ export interface CreateSignalChannelRequest {
   timeframe: string;
   deliveryType?: string;
   isAutoTrade?: boolean;
+  deliveryMethods?: DeliveryMethodConfig[];
 }

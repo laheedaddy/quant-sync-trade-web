@@ -5,4 +5,9 @@ export interface StockSearchResult {
   exchange: string;
   exchangeShortName: string;
   stockType: string;
+  stockNameLocal: string | null;
+  sector: string | null;
+  logoUrl: string | null;
+  isActive: boolean;
+  isDelete: boolean;
 }

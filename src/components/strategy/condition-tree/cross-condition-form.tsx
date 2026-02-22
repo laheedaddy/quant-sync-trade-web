@@ -1,5 +1,6 @@
 'use client';
 
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { CrossCondition, IndicatorType } from '@/types/strategy';
 import { CROSS_OPERATORS, CROSS_OPERATOR_LABELS, INDICATOR_INDEX_OPTIONS } from '@/types/strategy';
@@ -49,6 +50,21 @@ export function CrossConditionForm({ condition, onChange }: CrossConditionFormPr
         </SelectContent>
       </Select>
 
+      <div className="flex items-center gap-0.5">
+        <Input
+          type="number"
+          step="0.1"
+          value={condition.offsetPercent ?? ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({ ...condition, offsetPercent: v === '' ? undefined : parseFloat(v) });
+          }}
+          placeholder="±%"
+          className="w-14 h-7 text-xs text-center bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"
+        />
+        <span className="text-[10px] text-[#787b86]">%</span>
+      </div>
+
       <Select value={(condition.index ?? 0).toString()} onValueChange={(v) => onChange({ ...condition, index: parseInt(v) })}>
         <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>
         <SelectContent className="bg-[#1e222d] border-[#2a2e39]">
@@ -76,6 +92,21 @@ export function CrossConditionForm({ condition, onChange }: CrossConditionFormPr
           {targetFields.map((f) => (<SelectItem key={f.key} value={f.key} className="text-[#d1d4dc] text-xs">{f.label}</SelectItem>))}
         </SelectContent>
       </Select>
+
+      <div className="flex items-center gap-0.5">
+        <Input
+          type="number"
+          step="0.1"
+          value={condition.targetOffsetPercent ?? ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({ ...condition, targetOffsetPercent: v === '' ? undefined : parseFloat(v) });
+          }}
+          placeholder="±%"
+          className="w-14 h-7 text-xs text-center bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"
+        />
+        <span className="text-[10px] text-[#787b86]">%</span>
+      </div>
 
       <Select value={(condition.targetIndex ?? 0).toString()} onValueChange={(v) => onChange({ ...condition, targetIndex: parseInt(v) })}>
         <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>

@@ -18,6 +18,8 @@ import { AddIndicatorDialog } from './add-indicator-dialog';
 import { EditDrawingDialog } from './edit-drawing-dialog';
 import { isPanelIndicator } from '@/lib/chart/indicators';
 import { Toaster } from 'sonner';
+import { AlertTriangle } from 'lucide-react';
+import { getStockBySymbol } from '@/lib/api/stock';
 import type { UserChartIndicatorConfig, UserChartDrawing } from '@/types/chart';
 
 export function ChartContainer() {
@@ -39,6 +41,18 @@ export function ChartContainer() {
 
   const { availableConfigs, activeStrategyNo, viewingVersionNo, symbol, timeframe } = useChartStore();
   const realtimeQuote = useRealtimeQuote(symbol || null);
+
+  // 비활성/삭제 종목 경고 상태
+  const [stockInactive, setStockInactive] = useState(false);
+  useEffect(() => {
+    if (!symbol) {
+      setStockInactive(false);
+      return;
+    }
+    getStockBySymbol(symbol).then((stock) => {
+      setStockInactive(stock ? (!stock.isActive || stock.isDelete) : false);
+    });
+  }, [symbol]);
   const isStrategyMode = activeStrategyNo !== null;
   const isVersionMode = viewingVersionNo !== null;
 
@@ -254,6 +268,13 @@ export function ChartContainer() {
   return (
     <div className="flex flex-col h-full bg-[#0a0e17]">
       <ChartToolbar />
+
+      {stockInactive && (
+        <div className="bg-[#ef5350]/10 border-b border-[#ef5350]/30 text-[#ef5350] text-xs px-3 py-1.5 flex items-center gap-2 shrink-0">
+          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+          <span>해당 종목은 관리되지 않는 종목입니다. 시세 수신 및 데이터 수집이 중단되었을 수 있습니다.</span>
+        </div>
+      )}
 
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {/* Chart area */}

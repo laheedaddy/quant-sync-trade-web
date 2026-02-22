@@ -1,5 +1,6 @@
 'use client';
 
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { PriceCondition, PriceField, IndicatorType } from '@/types/strategy';
 import { COMPARISON_OPERATORS, COMPARISON_OPERATOR_LABELS, PRICE_FIELDS, PRICE_FIELD_LABELS, INDICATOR_INDEX_OPTIONS } from '@/types/strategy';
@@ -40,6 +41,21 @@ export function PriceConditionForm({ condition, onChange }: PriceConditionFormPr
           {fields.map((f) => (<SelectItem key={f.key} value={f.key} className="text-[#d1d4dc] text-xs">{f.label}</SelectItem>))}
         </SelectContent>
       </Select>
+
+      <div className="flex items-center gap-0.5">
+        <Input
+          type="number"
+          step="0.1"
+          value={condition.offsetPercent ?? ''}
+          onChange={(e) => {
+            const v = e.target.value;
+            onChange({ ...condition, offsetPercent: v === '' ? undefined : parseFloat(v) });
+          }}
+          placeholder="±%"
+          className="w-14 h-7 text-xs text-center bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"
+        />
+        <span className="text-[10px] text-[#787b86]">%</span>
+      </div>
 
       <Select value={condition.operator} onValueChange={(v) => onChange({ ...condition, operator: v as PriceCondition['operator'] })}>
         <SelectTrigger className="w-20 h-7 text-xs bg-[#0a0e17] border-[#2a2e39] text-[#d1d4dc]"><SelectValue /></SelectTrigger>

@@ -69,6 +69,8 @@ export interface LeafConditionEval {
   targetValue: number | null;
   prevValue?: number | null;
   prevTargetValue?: number | null;
+  offsetPercent?: number;
+  rawValue?: number | null;
 }
 
 export interface ConditionGroupEval {

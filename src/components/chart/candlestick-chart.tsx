@@ -248,7 +248,21 @@ export function CandlestickChart({
   // Update candle + volume data (depends on candles AND candleDisplayType)
   useEffect(() => {
     const chart = chartRef.current;
-    if (!chart || candles.length === 0) return;
+    if (!chart) return;
+
+    // 데이터 없는 심볼: 기존 시리즈 데이터 클리어
+    if (candles.length === 0) {
+      const candleSeries = seriesRef.current.get('candles');
+      if (candleSeries) candleSeries.setData([]);
+      const volumeSeries = seriesRef.current.get('volume');
+      if (volumeSeries) volumeSeries.setData([]);
+      lastBarRef.current = null;
+      lastRawOHLCRef.current = null;
+      prevHACandleRef.current = null;
+      setHoveredCandle(null);
+      prevCandleCountRef.current = 0;
+      return;
+    }
 
     const currentDatasetKey = `${symbol}:${timeframe}`;
     const datasetChanged = prevDatasetKeyRef.current !== currentDatasetKey;
