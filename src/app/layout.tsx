@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 import { SocketProvider } from '@/components/providers/socket-provider';
+import { AuthProvider } from '@/components/providers/auth-provider';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -28,7 +29,9 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased bg-[#0a0e17] text-[#d1d4dc]`}
       >
-        <SocketProvider>{children}</SocketProvider>
+        <AuthProvider>
+          <SocketProvider>{children}</SocketProvider>
+        </AuthProvider>
       </body>
     </html>
   );

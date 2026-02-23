@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { useQuoteStore } from '@/stores/quote-store';
+import { useAuthStore } from '@/stores/auth-store';
 
 const NAV_ITEMS = [
   { label: 'Chart', href: '/chart' },
@@ -18,8 +19,16 @@ const STATUS_CONFIG = {
 
 export function Header() {
   const pathname = usePathname();
+  const router = useRouter();
   const connectionStatus = useQuoteStore((s) => s.connectionStatus);
   const config = STATUS_CONFIG[connectionStatus];
+  const user = useAuthStore((s) => s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
+
+  const handleLogout = () => {
+    clearAuth();
+    router.replace('/login');
+  };
 
   return (
     <header className="flex items-center justify-between px-4 py-2 border-b border-[#2a2e39] bg-[#131722]">
@@ -45,7 +54,7 @@ export function Header() {
         </nav>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
           <div
             className={cn(
@@ -58,6 +67,18 @@ export function Header() {
             {config.label}
           </span>
         </div>
+
+        {user && (
+          <div className="flex items-center gap-2 pl-2 border-l border-[#2a2e39]">
+            <span className="text-xs text-[#787b86]">{user.name}</span>
+            <button
+              onClick={handleLogout}
+              className="text-[10px] text-[#787b86] hover:text-[#ef5350] transition-colors"
+            >
+              Logout
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
