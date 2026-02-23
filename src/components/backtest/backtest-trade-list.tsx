@@ -2,6 +2,7 @@
 
 import type { BacktestTrade } from '@/types/backtest';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 
 interface BacktestTradeListProps {
   trades: BacktestTrade[];
@@ -13,44 +14,37 @@ export function BacktestTradeList({ trades }: BacktestTradeListProps) {
   return (
     <div>
       <h4 className="text-xs font-medium text-[#787b86] mb-2">
-        거래 내역 ({trades.length})
+        시그널 타임라인 ({trades.length})
       </h4>
       <ScrollArea className="h-[200px]">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           {trades.map((trade) => {
-            const isWin = (trade.pnl || 0) > 0;
+            const isBuy = trade.tradeType === 'BUY';
             return (
               <div
                 key={trade.backtestTradeNo}
-                className="p-2 rounded border border-[#2a2e39] bg-[#1e222d] text-xs"
+                className="flex items-center gap-2 px-2 py-1.5 rounded border border-[#2a2e39] bg-[#1e222d] text-xs"
               >
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-[#26a69a] font-medium">BUY</span>
-                  {trade.exitDate && (
-                    <span
-                      className={`font-mono font-medium ${
-                        isWin ? 'text-[#26a69a]' : 'text-[#ef5350]'
-                      }`}
-                    >
-                      {isWin ? '+' : ''}
-                      {Number(trade.returnPct || 0).toFixed(2)}%
-                    </span>
-                  )}
-                </div>
-                <div className="flex justify-between text-[#787b86]">
-                  <span>
-                    {formatDate(trade.entryDate)} @ {Number(trade.entryPrice).toFixed(2)}
+                <Badge
+                  variant="outline"
+                  className={`text-[10px] shrink-0 ${
+                    isBuy
+                      ? 'bg-[#26a69a]/20 text-[#26a69a] border-[#26a69a]/30'
+                      : 'bg-[#ef5350]/20 text-[#ef5350] border-[#ef5350]/30'
+                  }`}
+                >
+                  {trade.tradeType}
+                </Badge>
+                <span className="text-[#d1d4dc] font-mono">
+                  {Number(trade.entryPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
+                </span>
+                <span className="text-[#787b86] ml-auto shrink-0">
+                  {formatDate(trade.entryDate)}
+                </span>
+                {trade.entryRuleNo != null && (
+                  <span className="text-[10px] text-[#787b86] shrink-0">
+                    R#{trade.entryRuleNo}
                   </span>
-                  {trade.exitDate && (
-                    <span>
-                      → {formatDate(trade.exitDate)} @ {Number(trade.exitPrice || 0).toFixed(2)}
-                    </span>
-                  )}
-                </div>
-                {trade.pnl !== undefined && trade.pnl !== null && (
-                  <div className={`text-right font-mono ${isWin ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-                    {isWin ? '+' : ''}{Number(trade.pnl).toLocaleString()}
-                  </div>
                 )}
               </div>
             );
@@ -63,5 +57,9 @@ export function BacktestTradeList({ trades }: BacktestTradeListProps) {
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr);
-  return `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}`;
+  const mon = (d.getMonth() + 1).toString().padStart(2, '0');
+  const day = d.getDate().toString().padStart(2, '0');
+  const h = d.getHours().toString().padStart(2, '0');
+  const m = d.getMinutes().toString().padStart(2, '0');
+  return `${mon}/${day} ${h}:${m}`;
 }

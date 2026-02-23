@@ -26,7 +26,7 @@ const TYPE_LABELS: Record<string, string> = {
   THRESHOLD: 'THRESHOLD',
   CROSS: 'CROSS',
   PRICE: 'PRICE',
-  POSITION: 'SL/TP',
+  POSITION: 'SL/TP (removed)',
 };
 
 export function ConditionLeafNode({ condition, onChange, onDelete }: ConditionLeafNodeProps) {

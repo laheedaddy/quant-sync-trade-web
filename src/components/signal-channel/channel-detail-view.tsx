@@ -412,16 +412,6 @@ function MonitorSection({
                   ${Number(monitor.lastSignalPrice).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 8 })}
                 </span>
               )}
-              {monitor.lastSignalType === 'BUY' && monitor.lastSignalPrice != null && tickPrice != null && (() => {
-                const entryPrice = Number(monitor.lastSignalPrice);
-                const pnl = ((tickPrice - entryPrice) / entryPrice) * 100;
-                const isPositive = pnl >= 0;
-                return (
-                  <span className={`text-xs font-mono font-medium ${isPositive ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-                    {isPositive ? '+' : ''}{pnl.toFixed(2)}%
-                  </span>
-                );
-              })()}
               {timeAgo && <span className="text-[10px] text-[#787b86]">({timeAgo})</span>}
             </>
           )}
@@ -434,12 +424,6 @@ function MonitorSection({
           ) : (
             <span className="text-[#787b86]">No cooldown</span>
           )}
-          <span className="text-[#2a2e39]">·</span>
-          <span className="text-[#787b86]">
-            Next: <span className={`font-medium ${monitor?.nextEvaluateRule === 'BUY' ? 'text-[#26a69a]' : 'text-[#ef5350]'}`}>
-              {monitor?.nextEvaluateRule ?? '—'}
-            </span>
-          </span>
           <Button
             size="sm"
             variant="ghost"
@@ -469,7 +453,6 @@ function MonitorSection({
             rule={rule}
             tickPrice={tickPrice}
             indicatorNameMap={indicatorNameMap}
-            lastSignalPrice={monitor.lastSignalPrice}
           />
         ))
       )}
@@ -516,12 +499,10 @@ function RuleEvalCard({
   rule,
   tickPrice,
   indicatorNameMap,
-  lastSignalPrice,
 }: {
   rule: RuleEvalResult;
   tickPrice: number | null;
   indicatorNameMap: Map<number, string>;
-  lastSignalPrice: number | null;
 }) {
   const passedLabel = rule.passed ? 'MET' : 'NOT MET';
   const passedCls = rule.passed ? 'text-[#26a69a]' : 'text-[#ef5350]';
@@ -545,7 +526,6 @@ function RuleEvalCard({
           depth={0}
           tickPrice={tickPrice}
           indicatorNameMap={indicatorNameMap}
-          lastSignalPrice={lastSignalPrice}
         />
       </div>
     </div>
@@ -565,13 +545,11 @@ function ConditionNode({
   depth,
   tickPrice,
   indicatorNameMap,
-  lastSignalPrice,
 }: {
   node: ConditionGroupEval | LeafConditionEval;
   depth: number;
   tickPrice: number | null;
   indicatorNameMap: Map<number, string>;
-  lastSignalPrice: number | null;
 }) {
   if (isLeafConditionEval(node)) {
     return (
@@ -579,7 +557,6 @@ function ConditionNode({
         leaf={node}
         tickPrice={tickPrice}
         indicatorNameMap={indicatorNameMap}
-        lastSignalPrice={lastSignalPrice}
       />
     );
   }
@@ -598,7 +575,6 @@ function ConditionNode({
             depth={depth + 1}
             tickPrice={tickPrice}
             indicatorNameMap={indicatorNameMap}
-            lastSignalPrice={lastSignalPrice}
           />
         ))}
       </div>
@@ -612,12 +588,10 @@ function LeafConditionRow({
   leaf,
   tickPrice,
   indicatorNameMap,
-  lastSignalPrice,
 }: {
   leaf: LeafConditionEval;
   tickPrice: number | null;
   indicatorNameMap: Map<number, string>;
-  lastSignalPrice: number | null;
 }) {
   const isPosition = leaf.type === 'POSITION';
   const indicatorName = isPosition
@@ -627,16 +601,10 @@ function LeafConditionRow({
   // PRICE 조건: targetValue를 tickPrice로 대체 + passed 재계산
   let displayTarget = leaf.targetValue;
   let displayPassed = leaf.passed;
-  let displayActual = leaf.actualValue;
+  const displayActual = leaf.actualValue;
   if (leaf.type === 'PRICE' && tickPrice != null) {
     displayTarget = tickPrice;
     displayPassed = leaf.actualValue != null ? compareOp(leaf.actualValue, leaf.operator, tickPrice) : false;
-  }
-  // POSITION changePercent: tickPrice + lastSignalPrice 기반 실시간 재계산
-  if (isPosition && leaf.field === 'changePercent' && tickPrice != null && lastSignalPrice != null && Number(lastSignalPrice) !== 0) {
-    const entryPrice = Number(lastSignalPrice);
-    displayActual = ((tickPrice - entryPrice) / entryPrice) * 100;
-    displayPassed = displayTarget != null ? compareOp(displayActual, leaf.operator, displayTarget) : false;
   }
 
   const typeBadgeColors: Record<string, string> = {
@@ -678,9 +646,6 @@ function LeafConditionRow({
               <span className="text-[#ef5350] font-mono">
                 {displayTarget != null ? `${formatNum(displayTarget)}${fieldUnit}` : 'null'}
               </span>
-              {leaf.field === 'changePercent' && tickPrice != null && lastSignalPrice != null && (
-                <span className="text-[9px] text-[#787b86] italic">(live)</span>
-              )}
             </>
           ) : (
             <>
@@ -691,9 +656,18 @@ function LeafConditionRow({
                 {displayActual != null ? formatNum(displayActual) : 'null'}
               </span>
               <span className="text-[#787b86]">{operatorLabel}</span>
-              <span className={`font-mono ${leaf.type === 'PRICE' ? 'text-[#ff9800]' : 'text-[#d1d4dc]'}`}>
-                {displayTarget != null ? formatNum(displayTarget) : 'null'}
-              </span>
+              {leaf.type === 'PRICE' && leaf.priceField ? (
+                <>
+                  <span className="text-[#ff9800] text-[9px]">{leaf.priceField}</span>
+                  <span className="text-[#ff9800] font-mono">
+                    ({displayTarget != null ? formatNum(displayTarget) : 'null'})
+                  </span>
+                </>
+              ) : (
+                <span className={`font-mono ${leaf.type === 'PRICE' ? 'text-[#ff9800]' : 'text-[#d1d4dc]'}`}>
+                  {displayTarget != null ? formatNum(displayTarget) : 'null'}
+                </span>
+              )}
               {leaf.type === 'PRICE' && tickPrice != null && (
                 <span className="text-[9px] text-[#787b86] italic">(live)</span>
               )}

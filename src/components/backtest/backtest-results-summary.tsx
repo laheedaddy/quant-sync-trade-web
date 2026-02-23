@@ -12,39 +12,21 @@ export function BacktestResultsSummary({ run }: BacktestResultsSummaryProps) {
   const versionInfo = run.userStrategyVersionNo
     ? versions.find((v) => Number(v.userStrategyVersionNo) === Number(run.userStrategyVersionNo))
     : null;
-  const isPositive = Number(run.totalReturn) > 0;
-  const returnColor = isPositive ? 'text-[#26a69a]' : 'text-[#ef5350]';
-
   const stats = [
     {
-      label: '수익률',
-      value: `${isPositive ? '+' : ''}${Number(run.totalReturn).toFixed(2)}%`,
-      color: returnColor,
-    },
-    {
-      label: '손익',
-      value: `${isPositive ? '+' : ''}${Number(run.totalPnl).toLocaleString()}`,
-      color: returnColor,
-    },
-    {
-      label: '승률',
-      value: `${Number(run.winRate).toFixed(1)}%`,
+      label: '총 시그널',
+      value: `${run.tradeCount}`,
       color: 'text-[#d1d4dc]',
     },
     {
-      label: '거래 수',
-      value: `${run.tradeCount} (W${run.winCount}/L${run.lossCount})`,
-      color: 'text-[#d1d4dc]',
+      label: 'BUY 시그널',
+      value: `${run.winCount}`,
+      color: 'text-[#26a69a]',
     },
     {
-      label: '최대 낙폭',
-      value: `-${Number(run.maxDrawdown).toFixed(2)}%`,
+      label: 'SELL 시그널',
+      value: `${run.lossCount}`,
       color: 'text-[#ef5350]',
-    },
-    {
-      label: '평균 보유',
-      value: formatDuration(Number(run.avgTradeDuration)),
-      color: 'text-[#d1d4dc]',
     },
   ];
 
@@ -58,7 +40,7 @@ export function BacktestResultsSummary({ run }: BacktestResultsSummaryProps) {
           </span>
         )}
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         {stats.map((stat) => (
           <div
             key={stat.label}
@@ -100,8 +82,3 @@ export function BacktestResultsSummary({ run }: BacktestResultsSummaryProps) {
   );
 }
 
-function formatDuration(minutes: number): string {
-  if (minutes < 60) return `${Math.round(minutes)}m`;
-  if (minutes < 1440) return `${(minutes / 60).toFixed(1)}h`;
-  return `${(minutes / 1440).toFixed(1)}d`;
-}

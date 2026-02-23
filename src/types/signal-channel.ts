@@ -139,6 +139,7 @@ export interface LeafConditionEval {
   prevTargetValue?: number | null;
   offsetPercent?: number;
   rawValue?: number | null;
+  priceField?: string;
 }
 
 export interface ConditionGroupEval {
@@ -161,7 +162,6 @@ export interface ChannelMonitor {
   lastSignalPrice: number | null;
   isInCooldown: boolean;
   cooldownSecondsRemaining: number;
-  nextEvaluateRule: 'BUY' | 'SELL';
   indicators: ChannelIndicatorCache[];
   ruleEvaluations: RuleEvalResult[];
   marketSession: MarketSession;

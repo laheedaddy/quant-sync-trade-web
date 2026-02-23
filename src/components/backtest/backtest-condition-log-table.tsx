@@ -77,7 +77,12 @@ function ConditionNode({
           ) : (
             <>
               ref({node.indicatorRef}).{node.field} = {formatValue(node.actualValue)}{' '}
-              {formatOperator(node.operator)} {formatValue(node.targetValue)}
+              {formatOperator(node.operator)}{' '}
+              {node.type === 'PRICE' && node.priceField ? (
+                <><span className="text-[#ff9800]">{node.priceField}</span>({formatValue(node.targetValue)})</>
+              ) : (
+                formatValue(node.targetValue)
+              )}
             </>
           )}
         </span>

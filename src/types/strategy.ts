@@ -23,7 +23,7 @@ export type ComparisonOperator = (typeof COMPARISON_OPERATORS)[number];
 export const CROSS_OPERATORS = ['CROSS_ABOVE', 'CROSS_BELOW'] as const;
 export type CrossOperator = (typeof CROSS_OPERATORS)[number];
 
-export const CONDITION_TYPES = ['THRESHOLD', 'CROSS', 'PRICE', 'POSITION'] as const;
+export const CONDITION_TYPES = ['THRESHOLD', 'CROSS', 'PRICE'] as const;
 export type ConditionType = (typeof CONDITION_TYPES)[number];
 
 export const GROUP_OPERATORS = ['AND', 'OR'] as const;

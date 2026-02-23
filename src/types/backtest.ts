@@ -60,7 +60,7 @@ export interface BacktestTrade {
 // ─── 조건 평가 트레이스 타입 ───
 
 export interface LeafConditionEval {
-  type: 'THRESHOLD' | 'CROSS' | 'PRICE';
+  type: 'THRESHOLD' | 'CROSS' | 'PRICE' | 'POSITION';
   passed: boolean;
   indicatorRef: number;
   field: string;
@@ -71,6 +71,7 @@ export interface LeafConditionEval {
   prevTargetValue?: number | null;
   offsetPercent?: number;
   rawValue?: number | null;
+  priceField?: string;
 }
 
 export interface ConditionGroupEval {
@@ -96,7 +97,7 @@ export interface BacktestConditionLog {
   lowPrice: number;
   closePrice: number;
   positionState: 'NONE' | 'HOLDING';
-  evaluatedRuleType: 'BUY' | 'SELL';
+  evaluatedRuleType: 'BUY' | 'SELL' | 'ALL';
   ruleResults: RuleEvalResult[];
   action: 'ENTRY' | 'EXIT' | null;
   actionRuleNo: number | null;

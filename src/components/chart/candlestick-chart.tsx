@@ -450,24 +450,15 @@ export function CandlestickChart({
         }> = [];
 
         for (const trade of trades) {
-          const entryTs = Math.floor(new Date(trade.entryDate).getTime() / 1000) + markerOffset;
+          const isBuy = trade.tradeType === 'BUY';
+          const ts = Math.floor(new Date(trade.entryDate).getTime() / 1000) + markerOffset;
           markers.push({
-            time: entryTs,
-            position: 'belowBar',
-            color: '#26a69a',
-            shape: 'arrowUp',
-            text: 'B',
+            time: ts,
+            position: isBuy ? 'belowBar' : 'aboveBar',
+            color: isBuy ? '#26a69a' : '#ef5350',
+            shape: isBuy ? 'arrowUp' : 'arrowDown',
+            text: isBuy ? 'B' : 'S',
           });
-          if (trade.exitDate) {
-            const exitTs = Math.floor(new Date(trade.exitDate).getTime() / 1000) + markerOffset;
-            markers.push({
-              time: exitTs,
-              position: 'aboveBar',
-              color: '#ef5350',
-              shape: 'arrowDown',
-              text: 'S',
-            });
-          }
         }
         markers.sort((a, b) => a.time - b.time);
         markersPluginRef.current = createSeriesMarkers(candleSeries, markers as any);
@@ -713,27 +704,15 @@ export function CandlestickChart({
     }> = [];
 
     for (const trade of backtestTrades) {
-      // Entry marker (BUY)
-      const entryTs = Math.floor(new Date(trade.entryDate).getTime() / 1000) + markerOffset;
+      const isBuy = trade.tradeType === 'BUY';
+      const ts = Math.floor(new Date(trade.entryDate).getTime() / 1000) + markerOffset;
       markers.push({
-        time: entryTs,
-        position: 'belowBar',
-        color: '#26a69a',
-        shape: 'arrowUp',
-        text: 'B',
+        time: ts,
+        position: isBuy ? 'belowBar' : 'aboveBar',
+        color: isBuy ? '#26a69a' : '#ef5350',
+        shape: isBuy ? 'arrowUp' : 'arrowDown',
+        text: isBuy ? 'B' : 'S',
       });
-
-      // Exit marker (SELL)
-      if (trade.exitDate) {
-        const exitTs = Math.floor(new Date(trade.exitDate).getTime() / 1000) + markerOffset;
-        markers.push({
-          time: exitTs,
-          position: 'aboveBar',
-          color: '#ef5350',
-          shape: 'arrowDown',
-          text: 'S',
-        });
-      }
     }
 
     // Sort by time (required by lightweight-charts)
