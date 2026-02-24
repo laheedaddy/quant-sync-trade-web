@@ -115,6 +115,10 @@ export async function apiClient<T>(path: string, init?: RequestInit): Promise<T>
 }
 ```
 
+**인증 처리**: `apiClient`는 `useAuthStore`에서 `accessToken`을 자동 주입하고, 401 응답 시 `tryRefreshToken()`으로 1회 재시도. refresh 실패 시 `clearAuth()` + `/login`으로 자동 리다이렉트.
+
+**`totalCount`가 필요한 API**: `apiClient`는 `result`만 반환하므로, `totalCount`도 필요한 경우 raw `fetch()`를 사용한다. 이때 **반드시** `useAuthStore.getState().accessToken`으로 Authorization 헤더를 주입하고, 401 시 `tryRefreshToken()`을 호출해야 한다 (예: `fetchConditionLogs`).
+
 ### 백엔드 응답 구조
 
 ```json
@@ -560,3 +564,14 @@ npx shadcn@latest add [component-name]
 - **Cascade 동작 정리**:
   - 비활성화 (`isActive→false`): `isCollectionActive=false` + 시그널 채널 강제 중지
   - 삭제 (`isDelete→true`): `isActive=false` + `isCollectionActive=false` + 시그널 채널 강제 중지
+
+### 2026-02-24: 세션 만료 자동 리다이렉트 + fetchConditionLogs 인증 수정
+- **세션 만료 자동 리다이렉트** (`lib/api/client.ts`):
+  - `tryRefreshToken()` export으로 변경 (다른 모듈에서 직접 사용 가능)
+  - refresh 실패 시 `clearAuth()` + `window.location.replace('/login')` 자동 리다이렉트
+  - 저장된 refreshToken 없는 경우에도 동일 처리
+- **fetchConditionLogs 인증 수정** (`lib/api/backtest.ts`):
+  - `fetchConditionLogs()`가 raw `fetch()` 사용하면서 Authorization 헤더 누락 → 401 에러 발생
+  - `useAuthStore.getState().accessToken`으로 Authorization 헤더 주입
+  - 401 응답 시 `tryRefreshToken()` 호출 → 갱신 후 1회 재시도
+  - `tryRefreshToken` import 추가 (`lib/api/client.ts`에서)

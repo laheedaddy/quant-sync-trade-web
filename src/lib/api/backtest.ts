@@ -1,6 +1,7 @@
-import { apiClient, ApiError } from './client';
+import { apiClient, ApiError, tryRefreshToken } from './client';
 import type { ApiResponse } from '@/types/api';
 import type { BacktestRun, BacktestConditionLog, RunBacktestRequest } from '@/types/backtest';
+import { useAuthStore } from '@/stores/auth-store';
 
 const BASE = '/v1/backtest';
 
@@ -42,7 +43,26 @@ export async function fetchConditionLogs(
   searchParams.set('page', String(page));
   searchParams.set('limit', String(limit));
   const url = `/api${BASE}/${backtestRunNo}/condition-logs?${searchParams.toString()}`;
-  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+  const token = useAuthStore.getState().accessToken;
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  let res = await fetch(url, { headers });
+
+  // 401 → refresh token으로 갱신 후 1회 재시도
+  if (res.status === 401 && token) {
+    const refreshed = await tryRefreshToken();
+    if (refreshed) {
+      const newToken = useAuthStore.getState().accessToken;
+      res = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${newToken}` },
+      });
+    } else {
+      throw new ApiError(401, 'Session expired');
+    }
+  }
 
   if (!res.ok) {
     let message = `API Error: ${res.status} ${res.statusText}`;

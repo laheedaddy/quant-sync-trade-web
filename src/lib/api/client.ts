@@ -18,13 +18,17 @@ export class ApiError extends Error {
 // 동시 다발 401 시 refresh 1회만 실행
 let refreshPromise: Promise<boolean> | null = null;
 
-async function tryRefreshToken(): Promise<boolean> {
+export async function tryRefreshToken(): Promise<boolean> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
     try {
       const stored = useAuthStore.getState().refreshToken;
-      if (!stored) return false;
+      if (!stored) {
+        useAuthStore.getState().clearAuth();
+        if (typeof window !== 'undefined') window.location.replace('/login');
+        return false;
+      }
 
       const result = await refreshTokenApi(stored);
       useAuthStore.getState().setAuth(result.accessToken, result.refreshToken, {
@@ -35,6 +39,7 @@ async function tryRefreshToken(): Promise<boolean> {
       return true;
     } catch {
       useAuthStore.getState().clearAuth();
+      if (typeof window !== 'undefined') window.location.replace('/login');
       return false;
     } finally {
       refreshPromise = null;
