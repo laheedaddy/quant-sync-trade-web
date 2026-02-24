@@ -152,7 +152,11 @@ function LogRow({ log }: { log: BacktestConditionLog }) {
   const [expanded, setExpanded] = useState(false);
 
   const date = new Date(log.candleTimestamp);
-  const dateStr = date.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+  const mon = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const h = date.getHours().toString().padStart(2, '0');
+  const m = date.getMinutes().toString().padStart(2, '0');
+  const dateStr = `${mon}/${day} ${h}:${m}`;
 
   const anyPassed = log.ruleResults.some((r) => r.passed);
   const resultColor = anyPassed ? 'text-[#26a69a]' : 'text-[#ef5350]';

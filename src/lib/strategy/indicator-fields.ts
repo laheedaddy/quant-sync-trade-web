@@ -18,6 +18,10 @@ const INDICATOR_FIELDS: Record<IndicatorType, IndicatorField[]> = {
     { key: 'upper', label: 'Upper' },
     { key: 'middle', label: 'Middle' },
     { key: 'lower', label: 'Lower' },
+    { key: 'bandwidth', label: 'Bandwidth' },
+    { key: 'bandwidthPercentile', label: 'BW Percentile' },
+    { key: 'bandwidthSma', label: 'BW SMA' },
+    { key: 'bandwidthRatio', label: 'BW Ratio' },
   ],
   STOCHASTIC: [
     { key: 'k', label: '%K' },
@@ -109,6 +113,7 @@ const INDICATOR_PARAM_DEFS: Record<IndicatorType, IndicatorParamDef[]> = {
   BOLLINGER: [
     { key: 'period', label: 'Period', defaultValue: 20, min: 1, max: 500 },
     { key: 'deviation', label: 'Deviation', defaultValue: 2, min: 0.1, max: 10 },
+    { key: 'bandwidthLookback', label: 'BW Lookback', defaultValue: 20, min: 5, max: 500 },
   ],
   STOCHASTIC: [
     { key: 'kPeriod', label: '%K Period', defaultValue: 14, min: 1, max: 500 },

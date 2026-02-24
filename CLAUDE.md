@@ -575,3 +575,15 @@ npx shadcn@latest add [component-name]
   - `useAuthStore.getState().accessToken`으로 Authorization 헤더 주입
   - 401 응답 시 `tryRefreshToken()` 호출 → 갱신 후 1회 재시도
   - `tryRefreshToken` import 추가 (`lib/api/client.ts`에서)
+
+### 2026-02-24: 볼린저 Bandwidth 레전드 + 백테스트 타임스탬프 수정
+- **차트 레전드 Bandwidth 표시** (`components/chart/chart-legend.tsx`):
+  - BOLLINGER overlay 레전드에 bandwidth 파생값 분리 표시
+  - 가격 필드(upper/middle/lower): 기존 `formatPrice()` 유지
+  - Bandwidth 필드: `BW 8.87% · Pctl 23 · Ratio 1.12` 형식으로 별도 표시
+  - Percentile 색상: ≤20 초록(스퀴즈), ≥80 빨강(확장), 그 외 기본
+  - Ratio 색상: ≥1.0 빨강(확장), <1.0 초록(수축)
+  - `BANDWIDTH_KEYS` Set으로 가격 레전드에서 필터링
+- **백테스트 조건 로그 타임스탬프 수정** (`components/backtest/backtest-condition-log-table.tsx`):
+  - 변경 전: `toLocaleDateString('en-US', { month, day })` → `MM/DD` (시간 없음)
+  - 변경 후: `MM/DD HH:MM` (날짜 + 시간) — 인트라데이 타임프레임에서 동일 날짜 캔들 구분 가능

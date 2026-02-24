@@ -5,6 +5,9 @@ import { formatPrice } from '@/lib/utils/format';
 import { INDICATOR_COLORS } from '@/lib/chart/theme';
 import { Eye, EyeOff, Settings, X } from 'lucide-react';
 
+/** Bandwidth 파생 필드 — 차트 시리즈가 아니므로 가격 레전드에서 분리 표시 */
+const BANDWIDTH_KEYS = new Set(['bandwidth', 'bandwidthPercentile', 'bandwidthSma', 'bandwidthRatio']);
+
 interface IndicatorActions {
   onEdit: (configNo: number) => void;
   onToggle: (configNo: number) => void;
@@ -145,11 +148,35 @@ function IndicatorLegendLine({ indicator, actions, isActive, customColors, hover
       )}
 
       {/* 값 표시 (숨겨진 상태에서는 값 생략) */}
-      {isActive && Object.entries(displayData.value).map(([key, val]) => (
-        <span key={key} style={{ color }} className="opacity-80">
-          {typeof val === 'number' ? formatPrice(val) : String(val)}
-        </span>
-      ))}
+      {isActive && Object.entries(displayData.value)
+        .filter(([key]) => !BANDWIDTH_KEYS.has(key))
+        .map(([key, val]) => (
+          <span key={key} style={{ color }} className="opacity-80">
+            {typeof val === 'number' ? formatPrice(val) : String(val)}
+          </span>
+        ))}
+      {/* Bandwidth 파생 지표 (BOLLINGER 전용) */}
+      {isActive && indicator.indicatorType === 'BOLLINGER' && (() => {
+        const bw = displayData.value as Record<string, unknown>;
+        const hasBw = typeof bw.bandwidth === 'number';
+        if (!hasBw) return null;
+        return (
+          <span className="text-[#787b86] text-[10px] ml-1">
+            BW {(bw.bandwidth as number).toFixed(2)}%
+            {typeof bw.bandwidthPercentile === 'number' && (
+              <> · Pctl <span className={
+                (bw.bandwidthPercentile as number) <= 20 ? 'text-[#26a69a]' :
+                (bw.bandwidthPercentile as number) >= 80 ? 'text-[#ef5350]' : 'text-[#d1d4dc]'
+              }>{(bw.bandwidthPercentile as number).toFixed(0)}</span></>
+            )}
+            {typeof bw.bandwidthRatio === 'number' && (
+              <> · Ratio <span className={
+                (bw.bandwidthRatio as number) >= 1.0 ? 'text-[#ef5350]' : 'text-[#26a69a]'
+              }>{(bw.bandwidthRatio as number).toFixed(2)}</span></>
+            )}
+          </span>
+        );
+      })()}
     </div>
   );
 }
