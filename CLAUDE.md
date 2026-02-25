@@ -305,6 +305,27 @@ npx shadcn@latest add [component-name]
 
 ---
 
+## 스킬 목록
+
+프로젝트 관련 스킬을 `/skill-name`으로 호출 가능 (root `.claude/commands/`에 정의):
+
+### 웹 전용
+
+| 스킬 | 설명 |
+|------|------|
+| `/web-new-page` | Next.js App Router 새 페이지 생성 |
+| `/web-new-component` | 재사용 컴포넌트 생성 (shadcn/ui 패턴) |
+| `/web-api-integration` | 새 API 엔드포인트 연동 (types → api → hooks → stores) |
+
+### 크로스 프로젝트
+
+| 스킬 | 설명 |
+|------|------|
+| `/code-review` | 통합 코드 리뷰 (백엔드/웹/데스크톱 자동 판별) |
+| `/debug-guide` | 통합 디버깅 가이드 |
+
+---
+
 ## 백엔드 연동 설정
 
 `next.config.ts`에서 API 프록시:
